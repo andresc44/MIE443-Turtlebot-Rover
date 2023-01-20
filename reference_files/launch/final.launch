@@ -1,0 +1,51 @@
+<launch>
+
+    <!-- publish servo state false and the mode to 2 -->
+
+    <node pkg="rostopic" type="rostopic" name="rostopic1" args="pub /operation_mode std_msgs/Int8 'data: 1'"/>
+    <node pkg="rostopic" type="rostopic" name="rostopic2" args="pub /servo std_msgs/Bool 'data: false'"/>
+
+
+    
+    <!-- successe -->
+    <node
+    pkg="scripts"
+    type="detectCrossRoads"
+    name="detectCrossRoads"
+    output="screen"
+    />
+
+    <!-- sucess -->
+    <node
+    pkg="scripts"
+    type="detectBlock"
+    name="detectBlock"
+    output="screen"
+    />
+
+    <node
+    pkg="scripts"
+    type="mode1_nav.py"
+    name="mode1_nav"
+    output="screen"
+    respawn="true"
+    />
+    <!-- check obstaclbe avvoidance.launch in milestone1 -->
+
+    <!-- sucesss -->
+    <node
+    pkg="scripts"
+    type="wheelController"
+    name="wheelController"
+    output="screen"
+    />
+
+    <node
+    pkg="scripts"
+    type="getBlock"
+    name="getBlock"
+    output="screen"
+    />
+
+
+</launch>

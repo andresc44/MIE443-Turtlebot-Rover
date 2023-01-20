@@ -1,0 +1,43 @@
+<launch>
+
+   <master auto="start"/>
+
+   <!-- Set parameter of URDF  -->
+   <arg name="model" default="$(find worlds)/models/robot/urdf/rover.urdf"/>
+   <param name="robot_description" command="$(find xacro)/xacro --inorder $(arg model)" />
+   <!-- <param name="robot_description" textfile="$(find worlds)/models/robot/urdf/rover.urdf"/> -->
+
+   <!-- Launch the world -->
+   <include file="$(find worlds)/launch/MazeWorld.launch" />
+
+	<include file="$(find description)/launch/laser_scan_matcher.launch"/>
+ <!-- Run the map server --> 
+    <node name="map_server" pkg="map_server" type="map_server" args="$(find description)/map/sim/mymap.yaml"/>
+    
+    <!-- Base to lidar transform -->
+    <!-- <node pkg="tf" type="static_transform_publisher" name="base_to_laser_broadcaster" args="0.00674979600000013 -0.036576 0.238388 0 0 0 base_link world 500" /> -->
+    <node pkg="tf" type="static_transform_publisher" name="base_to_laser_broadcaster" args="0.0 0.0 0.238388 0 0 0 base_link world 500" />
+    <node pkg="tf" type="static_transform_publisher" name="base_to_lidar_broadcaster" args="0.0 0.0 0.238388 0 0 0 base_link lidar_link 500" />
+    <node pkg="tf" type="static_transform_publisher" name="base_to_wheel1_broadcaster" args="0.045784 0.079299 0 2.618 0 0 base_link wheel1_link 500" />
+    <node pkg="tf" type="static_transform_publisher" name="base_to_wheel2_broadcaster" args="0.0457835000000003 -0.0792993481483295 0 0.523598775598303 0 0 base_link wheel2_link 500" />
+    <node pkg="tf" type="static_transform_publisher" name="base_to_wheel3_broadcaster" args="-0.111567 0 0 1.5708 0 0 base_link wheel3_link 500" />
+    <!-- cmd_vel to PWM node -->
+    <node pkg="scripts" type="wheelController" name="wheelController" output="screen">
+    </node>
+ <!--- Run AMCL --> 
+    <include file="$(find description)/launch/milestone2/amcl.launch" />
+
+   <node pkg="move_base" type="move_base" respawn="false" name="move_base" output="screen">
+    <rosparam file="$(find description)/config/costmap_common_params.yaml" command="load" ns="global_costmap" /> 
+    <rosparam file="$(find description)/config/costmap_common_params.yaml" command="load" ns="local_costmap" />
+    <rosparam file="$(find description)/config/local_costmap_params.yaml" command="load" />
+    <rosparam file="$(find description)/config/global_costmap_params.yaml" command="load" /> 
+    <rosparam file="$(find description)/config/base_local_planner_params.yaml" command="load" />
+   </node>
+   <node type="rviz" name="rviz" pkg="rviz" args="-d $(find description)/config/rviz_topdown.rviz" />
+
+   <!-- launch navigation stack node -->
+   <!-- NOT SURE IF THIS LINE IS CORRECT, LET ME KNOW ANDRES -->
+   <!-- <node name="nav_stack_goals" pkg="scripts" type="simple_navigation_goals" args="$(find scripts)/src/simple_navigation_goals.cpp" /> -->
+
+</launch> 

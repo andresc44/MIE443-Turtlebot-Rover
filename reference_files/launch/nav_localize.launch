@@ -1,0 +1,24 @@
+<launch>
+    <node pkg="scripts" type="laser_avoider_node.py" name="laser_avoider_node" output="screen">
+    </node>
+
+    <node pkg="tf" type="static_transform_publisher" name="base_to_laser_broadcaster" args="0.0 0.0 0.238388 0 0 0 base_link world 500" />
+    <!-- <node pkg="tf" type="static_transform_publisher" name="base_to_lidar_broadcaster" args="0.0 0.0 0.238388 0 0 0 base_link lidar_link 500" /> -->
+
+    <include file="$(find gazebo_ros)/launch/empty_world.launch">
+    <arg name="world_name" value="$(find worlds)/gazebo_worlds/MazeWorld.world"/>
+    <!-- more default parameters can be changed here -->
+  </include>
+  
+ <node
+    name="spawn_model"
+    pkg="gazebo_ros"
+    type="spawn_model"
+    args="-file $(find worlds)/models/robot/urdf/rover.urdf -urdf -model rover
+          -x 1.0692 -y -0.4596 -z 0
+          -R 0 -P 0 -Y 1.5707"
+    output="screen" />
+    <!-- Starting at 15cm from each edge, 1.647 rad -->
+
+    
+</launch>
