@@ -13,7 +13,7 @@ For anyone else:
 This file will install ROS, turtlebot, VSCode, and Terminator
 
 `source devel/setup.bash`
-
+`echo "source ~/catkin_ws/devel/setup.bash" >> ~/.bashrc` 
 for Andres wifi:
 
 `sudo systemctl restart network-manager`
