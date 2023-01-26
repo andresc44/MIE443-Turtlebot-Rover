@@ -16,6 +16,15 @@
 #define RAD2DEG(rad) ((rad) * 180. / M_PI) //coversion function 
 #define DEG2RAD(deg) ((deg) * M_PI / 180.) //inverse conversion function
 
+uint8_t bumper[3] = {kobuki_msgs::BumperEvent::RELEASED, kobuki_msgs::BumperEvent::RELEASED, kobuki_msgs::BumperEvent::RELEASED};
+uint8_t leftState = bumper[kobuki_msgs::BumperEvent::LEFT]; // kobuki_msgs::BumperEvent::PRESSED if bumper is pressed, kobuki_msgs::BumperEvent::RELEASED otherwise
+
+float angular = 0.0; //declare rotational vel (z) rad/s
+float linear = 0.0; //declare linear velocity (x) m/s
+float posX = 0.0, posY = 0.0, yaw = 0.0; //initialize odom position
+float minLaserDist = std::numeric_limits<float>::infinity(); //set minimum distance, volatile variable
+int32_t nLasers=0, desiredNLasers=0, desiredAngle=5; //laser parameters
+
 void bumperCallback(const kobuki_msgs::BumperEvent::ConstPtr& msg)
 {
     // Access using bumper[kobuki_msgs::BumperEvent::{}] LEFT, CENTER, or RIGHT
@@ -71,17 +80,10 @@ int main(int argc, char **argv)
     std::chrono::time_point<std::chrono::system_clock> start; //initialize timer
     start = std::chrono::system_clock::now(); //start the timer
     uint64_t secondsElapsed = 0; //variable for time that has passed
-    uint8_t bumper[3] = {kobuki_msgs::BumperEvent::RELEASED, kobuki_msgs::BumperEvent::RELEASED, kobuki_msgs::BumperEvent::RELEASED};
-    uint8_t leftState = bumper[kobuki_msgs::BumperEvent::LEFT]; // kobuki_msgs::BumperEvent::PRESSED if bumper is pressed, kobuki_msgs::BumperEvent::RELEASED otherwise
-
-    float angular = 0.0; //declare rotational vel (z) rad/s
-    float linear = 0.0; //declare linear velocity (x) m/s
-    float posX = 0.0, posY = 0.0, yaw = 0.0; //initialize odom position
-    float minLaserDist = std::numeric_limits<float>::infinity(); //set minimum distance, volatile variable
-    int32_t nLasers=0, desiredNLasers=0, desiredAngle=5; //laser parameters
+    
 
     while(ros::ok() && secondsElapsed <= 480) { //while ros master running and < 8 minutes
-        ROS_INFO("Postion: (%f, %f) Orientation: %f degrees Range: %f", posX, posY, yaw*180/pi, maxLaserRange); //print current state of everything
+        ROS_INFO("Postion: (%f, %f) Orientation: %f degrees Range: %f", posX, posY, RAD2DEG(yaw), minLaserDist); //print current state of everything, !!!!!!!CHANGED 2 LINES
         ros::spinOnce(); //listen to all subscriptions once
         //fill with your code
 
