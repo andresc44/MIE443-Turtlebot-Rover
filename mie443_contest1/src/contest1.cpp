@@ -12,6 +12,7 @@
 #include <chrono>
 
 
+
 #define N_BUMPER (3) //Number of bumpers on kobuki base
 #define RAD2DEG(rad) ((rad) * 180. / M_PI) //coversion function 
 #define DEG2RAD(deg) ((deg) * M_PI / 180.) //inverse conversion function
