@@ -7,6 +7,7 @@
 // Global variables: VariableName
 
 // 2 empty lines between functions
+// 1 empty line after if, else if, else, for, and while (unless followed by another '}' )
 // Initialization of variables at top in order of types
 // Comments aligned on function level
 // Comments start with space and capital
@@ -41,8 +42,7 @@
 #define MAX_OBST_DIST 0.5                   // If less than this, we should turn, meters
 #define STOPS_SPACING 0.5                   // Distance between checkpoints, meters
 #define TURNING_LIM 3000                    // Amounts of total degrees turned before turning robot around
-#define LR_WEIGHT 10                        // Weights
-#define OCCUP_WEIGHT 10
+#define OCCUP_WEIGHT 10                     // Weights for each factor
 #define ODOM_WEIGHT 10
 #define SCAN_WEIGHT 10
 #define ADJUST_ANGLE 15                     // How much to adjust robot by when wall detected on sides, degrees
@@ -50,13 +50,13 @@
 
 
 //!!!!!!!!!!!GLOBAL VARIABLES!!!!!!!!!!!!!!!!!!!!!!!!!
-uint8_t PressedBumper[3]={0,0,0};
-float CurrOdom[2] = {0, 0};
-float XboxRanges[SCAN_LENGTH] = {};
-float OdomArray[ODOM_ARRAY_LENGTH][2] = {};
-bool IsNearWall = true;
+uint8_t PressedBumper[3]={0,0,0};           // 3 bit array of bumper status
+float CurrOdom[2] = {0, 0};                 // Where the turtlebot is in that moment
+float XboxRanges[SCAN_LENGTH] = {};         // Storage for scan topic messages
+float OdomArray[ODOM_ARRAY_LENGTH][2] = {}; // Full Array saving all checkpoint locations
+bool IsNearWall = true;                     // Can we go fast or not
 bool AnyBumperPressed = false;              // Reset variable to false
-int TurningBias = 0;
+int TurningBias = 0;                        // Finds clearest path or correction direction
 
 uint8_t Bumper[3] = {kobuki_msgs::BumperEvent::RELEASED, kobuki_msgs::BumperEvent::RELEASED, kobuki_msgs::BumperEvent::RELEASED};
 uint8_t LeftState = Bumper[kobuki_msgs::BumperEvent::LEFT];     // kobuki_msgs::BumperEvent::PRESSED if bumper is pressed, kobuki_msgs::BumperEvent::RELEASED otherwise
@@ -76,6 +76,9 @@ void bumperCallback(const kobuki_msgs::BumperEvent::ConstPtr& msg)
 
 void laserCallback(const sensor_msgs::LaserScan::ConstPtr& msg)
 {
+    //!!!!!TO-DO!!!!!!!!
+    //Fix this function to output more meaningful data
+    //!!!!!TO-DO!!!!!!!!
     MinLaserDist = std::numeric_limits<float>::infinity();                                      // No minimum distance 
     NLasers = (msg->angle_max - msg->angle_min) / msg->angle_increment;                         // Count how many lasers there are  per cycle
     DesiredNLasers = DesiredAngle*M_PI / (180*msg->angle_increment);                            // Offset desired
@@ -88,12 +91,12 @@ void laserCallback(const sensor_msgs::LaserScan::ConstPtr& msg)
             MinLaserDist = std::min(MinLaserDist, msg->ranges[laser_idx]);
         }
     }
+
     else {                                                                                      // Edge cases?
         for (uint32_t laser_idx = 0; laser_idx < NLasers; ++laser_idx) {
             MinLaserDist = std::min(MinLaserDist, msg->ranges[laser_idx]);
         }
     }
-
 }
 
 
@@ -108,22 +111,22 @@ void odomCallback (const nav_msgs::Odometry::ConstPtr& msg)
 
 //!!!!!!!!!USER-DEFINED FUNCTIONS!!!!!!!!!!!!!!!!!!!!!!!!
 int sign(float number) {
-    return (number>0)? 1: -1;
+    return (number>0)? 1: -1;                               // Positive -> 1, otherwise -1
 }
 
 
 int dotAndSign(float vector1[2], float vector2[2]) {
     float product = vector1[0]*vector2[0] + vector1[1]*vector2[1];
-    return sign(product);
+    return sign(product);                                   // Dot product and its sign
 }
 
 
-float distance (float prev_odom[2], float new_odom[2]){
+float distance (float prev_odom[2], float new_odom[2]){     // Magnitude of change in distance between odom coordinates
     return (((new_odom[0] - prev_odom[0])**2 +(new_odom[1] - prev_odom[1])**2)**0.5);
 }
 
 
-uint8_t determineScanType (float xbox_distances[SCAN_LENGTH]) {
+uint8_t determineScanType (float xbox_distances[SCAN_LENGTH]) { // Detect environment classification based on scan data
     uint8_t state = 0;
     IsNearWall = true;
     TurningBias = 0;
@@ -131,6 +134,7 @@ uint8_t determineScanType (float xbox_distances[SCAN_LENGTH]) {
         state = 1;                      // Forward fast
         IsNearWall = false;
     }
+
     else if (nothing in front, but walls around) {
         state = 2;                      // Forward slow
     }
@@ -139,27 +143,32 @@ uint8_t determineScanType (float xbox_distances[SCAN_LENGTH]) {
         state = 3;
         TurningBias = 1;                // Tilt left
     }
+
     else if (tilt right) {
         state = 4;
         TurningBias = -1;               // Tilt right
     }
+
     else if (wall in front) {
         state = 5;
         if (clearing leftwards){
             TurningBias = 1;            // Turn left
         }
+
         else if (clearing rightwards){
             TurningBias = -1;           // Turn right
         }
     }
+
     else {
         state = 6;                      // Confused
     }
+
     return state;
 }
 
 
-int nearestCheckpoint() {
+int nearestCheckpoint() {                           // Which direction will guide turtlebot away from centroid of checkpoints
     float x_sum = 0;
     float y_sum = 0;
     float x_i = 0;
@@ -172,6 +181,7 @@ int nearestCheckpoint() {
         if (x_i == 0 && y_i == 0){
             break
         }
+
         x_sum += x_i;
         y_sum += y_i;
         len += 1;
@@ -189,14 +199,16 @@ int nearestCheckpoint() {
 
 
 int newFrontier() {
+    //!!!!!!TO-DO!!!!!!
     // Check Occupancy Grid map
+    //!!!!!!TO-DO!!!!!!
 }
 
 
 // !!!!!!!!!!!!!MAIN!!!!!!!!!!!!!!!!!!!!!!!!!!
 int main(int argc, char **argv)
 {
-    ros::init(argc, argv, "image_listener");    // Node name
+    ros::init(argc, argv, "Navigator");         // Node name
     ros::NodeHandle nh;                         // Initialize node handler
     ros::Rate loop_rate(10);                    // Code will try to run at 10 Hz
 
@@ -224,7 +236,7 @@ int main(int argc, char **argv)
 
     while(ros::ok() && seconds_elapsed <= 480) {        // While ros master running and < 8 minutes
         ros::spinOnce();                                // Listen to all subscriptions once
-        ROS_INFO("Postion: (%f, %f) Orientation: %f degrees Range: %f", CurrOdom[0], CurrOdom[1], Yaw, MinLaserDist); //print current state of everything, !!!!!!!CHANGED 2 LINES
+        ROS_INFO("Time: %i, Postion: (%f, %f),  Orientation: %f, degrees turning_count: %i, Range: %f", seconds_elapsed, CurrOdom[0], CurrOdom[1], Yaw, turning_count, MinLaserDist); //print current state of everything, !!!!!!!CHANGED 2 LINES
         dist_travelled = distance(last_odom, CurrOdom); // Distance is function to determine distance between 2 coordinates
         //TO-DO!!!!!!!!!!
         //add criteria to do checkpoint of forward happens uninterreupted
@@ -238,38 +250,52 @@ int main(int argc, char **argv)
             continue
         }
 
-        scan_mode = determineScanType(); //recognize different possibilities based on scan array, also look at changes in odom
+        scan_mode = determineScanType();                //recognize different possibilities based on scan array, also look at changes in odom
+        ROS_INFO("Scan Mode: %i", scan_mode);
+        if (scan_mode < 3) {
+            IsNearWall? forward(FORWARD_SLOW_V): forward(FORWARD_FAST_V);  
+        }
 
-        if ((scan_mode == 3) || (scan_mode == 4)){      //Tilt
+        else if ((scan_mode == 3) || (scan_mode == 4)){ //Tilt
             rotation = TurningBias*ADJUST_ANGLE;
             rotate(rotation)                            // Fix allignment by ~ 15 degrees depending on direction of bias
             turning_count += rotation;                  // Keep track of turning
-            continue                                    // Rerun loop
         }
+
         else if (scan_mode == 5) {                      // Front wall
-            scan_cmd = TurningBias;                     // Based on clearest path, L or R, function
-            occup_cmd = newFrontier();                  // Based on nearby occupancy grid, function
-            odom_cmd = nearestCheckpoint();             // Based on nearby odom checkpoints, function, checks OdomArray
             if (just_rotated) {                         // Bad turning decision, we're at a corner and turned into other wall
                 rotate(180);                            // Turn around, think about a dead end corridor situation
-                //TO-DO!!!!!!!!!!
-                //dead end scenario
-                //TO-DO!!!!!!!!!!
+                is_in_corner = true;
                 turning_count += -decision*180;         // If we made the wrong choice before, we want to overwrite that contribution to the count and add accordingly
                 just_rotated = false;                   // Reset flag
+                continue
+            }
+
+            else if (is_in_corner) {
+                rotate(-decision*90);
+                turning_count += decision*90; 
+                is_in_corner = false;
                 continue
             }
 
             if (turning_count > TURNING_LIM) {          // We've been turning too much
                 rotate(180);                            // Go other direction
                 turning_count = 0;                      // Reset flag
+                continue
             }
+
             else if (turning_count < -TURNING_LIM) {    // Same as above in other direction
                 rotate(180);
                 turning_count = 0;
+                continue
             }
 
-            decision = sign(scan_cmd*SCAN_WEIGHT + occup_cmd*OCCUP_WEIGHT + odom_cmd*ODOM_WEIGHT); //weighted decision of costs
+            scan_cmd = TurningBias;                     // Based on clearest path, L or R, function
+            odom_cmd = nearestCheckpoint();             // Based on nearby odom checkpoints, function, checks OdomArray
+            occup_cmd = newFrontier();                  // Based on nearby occupancy grid, function
+
+            decision = sign(scan_cmd*SCAN_WEIGHT + odom_cmd*ODOM_WEIGHT + occup_cmd*OCCUP_WEIGHT); //weighted decision of costs
+            ROS_INFO("Scan: %f, Odom: %f,  Occupancy: %f, Decision: %f", scan_cmd, odom_cmd, occup_cmd, decision);
             //TO-DO!!!!!!!!!!
             //rather than weight, potentially do steps to see if that area's been explored
             //TO-DO!!!!!!!!!!
@@ -277,12 +303,12 @@ int main(int argc, char **argv)
             rotate(rotation);                           // Rotate 90 based on decision
             turning_count += rotation;                  // Add rotation to count
             just_rotated = true;
-            continue
         }
+
         else {
-            IsNearWall? forward(FORWARD_SLOW_V): forward(FORWARD_FAST_V);  
+            rotate(180); //robot is confused
+            turning_count = 0;
         }
-        just_rotated = false;
 
         seconds_elapsed = std::chrono::duration_cast<std::chrono::seconds>(std::chrono::system_clock::now()-start).count(); //count how much time has passed
         loop_rate.sleep();                              // Delay function for 100ms
