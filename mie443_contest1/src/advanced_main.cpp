@@ -39,6 +39,7 @@
 #define FORWARD_FAST_V 0.15                 // Velocity when far from walls
 #define FORWARD_SLOW_V 0.08                 // Velocity near walls
 #define BACKWARD_V -0.05                    // Magnitude and direction in x axis
+#define TURNING_V 0.5                       // Rad/s
 #define MAX_OBST_DIST 0.5                   // If less than this, we should turn, meters
 #define STOPS_SPACING 0.5                   // Distance between checkpoints, meters
 #define TURNING_LIM 3000                    // Amounts of total degrees turned before turning robot around
@@ -121,12 +122,12 @@ int dotAndSign(float vector1[2], float vector2[2]) {
 }
 
 
-float distance (float prev_odom[2], float new_odom[2]){     // Magnitude of change in distance between odom coordinates
+float distance(float prev_odom[2], float new_odom[2]){     // Magnitude of change in distance between odom coordinates
     return (((new_odom[0] - prev_odom[0])**2 +(new_odom[1] - prev_odom[1])**2)**0.5);
 }
 
 
-uint8_t determineScanType (float xbox_distances[SCAN_LENGTH]) { // Detect environment classification based on scan data
+uint8_t determineScanType(float xbox_distances[SCAN_LENGTH]) { // Detect environment classification based on scan data
     uint8_t state = 0;
     IsNearWall = true;
     TurningBias = 0;
