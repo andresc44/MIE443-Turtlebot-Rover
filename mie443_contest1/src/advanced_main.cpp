@@ -34,7 +34,11 @@
 #define N_BUMPER (3)                        // Number of bumpers on kobuki base
 #define RAD2DEG(rad) ((rad) * 180. / M_PI)  // Coversion function 
 #define DEG2RAD(deg) ((deg) * M_PI / 180.)  // Inverse conversion function
-#define SCAN_LENGTH 32                      // Elements in an array of scan
+#define SCAN_LENGTH 640                      // Elements in an array of scan, last index is SCAN_LENGTH-1
+#define B_OFFSET 192                        // Indeces difference from A to either B
+#define A_THRESHOLD 0.617
+#define B_THRESHOLD 0.648
+#define C_THRESHOLD 0.7832
 #define ODOM_ARRAY_LENGTH 50                // Max number of checkpoints per trial
 #define FORWARD_FAST_V 0.15                 // Velocity when far from walls
 #define FORWARD_SLOW_V 0.08                 // Velocity near walls
@@ -48,7 +52,7 @@
 #define SCAN_WEIGHT 10
 #define ADJUST_ANGLE 15                     // How much to adjust robot by when wall detected on sides, degrees
 #define CHECKPOINT_RADIUS 0.2;              // How close are we to a previous checkpoint, may remove
-
+const int CENTRE_INDEX = SCAN_LENGTH / 2 -1;
 
 //!!!!!!!!!!!GLOBAL VARIABLES!!!!!!!!!!!!!!!!!!!!!!!!!
 uint8_t PressedBumper[3]={0,0,0};           // 3 bit array of bumper status
@@ -131,34 +135,49 @@ uint8_t determineScanType(float xbox_distances[SCAN_LENGTH]) { // Detect environ
     uint8_t state = 0;
     IsNearWall = true;
     TurningBias = 0;
-    if (nothing anwywhere) {
+    bool CM = 0;
+    bool BM = 0;
+    bool AC = 0;
+    bool BP = 0;
+    bool CP = 0;
+
+    float C_minus = xbox_distances[0];
+    float B_minus = xbox_distances[CENTRE_INDEX - B_OFFSET];
+    float A_centre = xbox_distances[CENTRE_INDEX];
+    float B_plus = xbox_distances[CENTRE_INDEX + B_OFFSET];
+    float C_plus = xbox_distances[SCAN_LENGTH-1];
+
+    if (C_minus > C_THRESHOLD && C_minus != 'inf') CM = 1;
+    if (B_minus > B_THRESHOLD && B_minus != 'inf') BM = 1;
+    if (A_centre > A_THRESHOLD && A_centre != 'inf') AC = 1;
+    if (B_plus > A_THRESHOLD && B_plus != 'inf') BP = 1;
+    if (C_plus > C_THRESHOLD && C_plus != 'inf') CP = 1;
+
+
+    if (CM && BM && AC && BP) {
         state = 1;                      // Forward fast
         IsNearWall = false;
     }
 
-    else if (nothing in front, but walls around) {
+    else if (BM && AC && BP) {
         state = 2;                      // Forward slow
     }
 
-    else if (tilt left) {
+    else if (AC && BP) {
         state = 3;
         TurningBias = 1;                // Tilt left
     }
 
-    else if (tilt right) {
+    else if (AC && BM) {
         state = 4;
         TurningBias = -1;               // Tilt right
     }
 
-    else if (wall in front) {
+    else if ((!AC && !BP) || (!AC && !BM) || (!BM && !BP)) {
         state = 5;
-        if (clearing leftwards){
-            TurningBias = 1;            // Turn left
-        }
-
-        else if (clearing rightwards){
-            TurningBias = -1;           // Turn right
-        }
+        if (CP) TurningBias += 1;            // Turn left
+        if (CM) TurningBias = -1;           // Turn right
+        
     }
 
     else {
