@@ -34,11 +34,11 @@
 #define N_BUMPER (3)                        // Number of bumpers on kobuki base
 #define RAD2DEG(rad) ((rad) * 180. / M_PI)  // Coversion function 
 #define DEG2RAD(deg) ((deg) * M_PI / 180.)  // Inverse conversion function
-#define SCAN_LENGTH 640                      // Elements in an array of scan, last index is SCAN_LENGTH-1
+#define SCAN_LENGTH 640                     // Elements in an array of scan, last index is SCAN_LENGTH-1
 #define B_OFFSET 192                        // Indeces difference from A to either B
-#define A_THRESHOLD 0.617
-#define B_THRESHOLD 0.648
-#define C_THRESHOLD 0.7832
+#define A_THRESHOLD 0.617                   // Considered obstacle directly in front
+#define B_THRESHOLD 0.648                   // Considered wall in the window for passage
+#define C_THRESHOLD 0.7832                  // Side (30 degree) distances to check for free space
 #define ODOM_ARRAY_LENGTH 50                // Max number of checkpoints per trial
 #define FORWARD_FAST_V 0.15                 // Velocity when far from walls
 #define FORWARD_SLOW_V 0.08                 // Velocity near walls
@@ -52,7 +52,7 @@
 #define SCAN_WEIGHT 10
 #define ADJUST_ANGLE 15                     // How much to adjust robot by when wall detected on sides, degrees
 #define CHECKPOINT_RADIUS 0.2;              // How close are we to a previous checkpoint, may remove
-const int CENTRE_INDEX = SCAN_LENGTH / 2 -1;
+const int CENTRE_INDEX = SCAN_LENGTH / 2 -1;// Get index for the middle index for the A value
 
 //!!!!!!!!!!!GLOBAL VARIABLES!!!!!!!!!!!!!!!!!!!!!!!!!
 uint8_t PressedBumper[3]={0,0,0};           // 3 bit array of bumper status
@@ -74,8 +74,33 @@ float MinLaserDist = std::numeric_limits<float>::infinity();    // Set minimum d
 
 //!!!!!!!!!!CALLBACK FUNCTIONS!!!!!!!!!!!!!!!!!!!!!!
 void bumperCallback(const kobuki_msgs::BumperEvent::ConstPtr& msg)
-{   
-    //Put in Selin's callback function
+{
+    // Access using bumper[kobuki_msgs::BumperEvent::{}] LEFT, CENTER, or RIGHT
+    Bumper[msg->bumper] = msg->state; //assigns bumper array to match message based on msg message
+
+	//fill with your code
+    for (uint8_t i = 0; i < N_BUMPER; i++){
+        if (Bumper[i] == kobuki_msgs::BumperEvent::PRESSED){
+            // bumper[0] = leftState, bumper[1] = centerState, bumper[2] = rightState
+            AnyBumperPressed = true;
+            //pressedBumper.fill(i);
+            PressedBumper[i] = 1;
+        }
+        else {
+            PressedBumper[i] =0;
+            AnyBumperPressed = false;
+        }
+    }
+
+    //if (!pressedBumper.empty()){
+        // call reverse function
+    //}
+
+    if (AnyBumperPressed) {
+        // call reverse function
+        reverse();
+    }
+
 }
 
 
@@ -147,11 +172,11 @@ uint8_t determineScanType(float xbox_distances[SCAN_LENGTH]) { // Detect environ
     float B_plus = xbox_distances[CENTRE_INDEX + B_OFFSET];
     float C_plus = xbox_distances[SCAN_LENGTH-1];
 
-    if (C_minus > C_THRESHOLD && C_minus != 'inf') CM = 1;
-    if (B_minus > B_THRESHOLD && B_minus != 'inf') BM = 1;
-    if (A_centre > A_THRESHOLD && A_centre != 'inf') AC = 1;
-    if (B_plus > A_THRESHOLD && B_plus != 'inf') BP = 1;
-    if (C_plus > C_THRESHOLD && C_plus != 'inf') CP = 1;
+    if (C_minus > C_THRESHOLD) CM = 1;
+    if (B_minus > B_THRESHOLD) BM = 1;
+    if (A_centre > A_THRESHOLD) AC = 1;
+    if (B_plus > A_THRESHOLD) BP = 1;
+    if (C_plus > C_THRESHOLD) CP = 1;
 
 
     if (CM && BM && AC && BP) {
@@ -222,8 +247,19 @@ int newFrontier() {
     //!!!!!!TO-DO!!!!!!
     // Check Occupancy Grid map
     //!!!!!!TO-DO!!!!!!
+    return 0
 }
 
+void rotate(int angle) { 
+    bool temp = true;
+}
+
+void forward(int dist) { 
+    bool temp = true;
+}
+void reverse() { 
+    bool temp = true;
+}
 
 // !!!!!!!!!!!!!MAIN!!!!!!!!!!!!!!!!!!!!!!!!!!
 int main(int argc, char **argv)
