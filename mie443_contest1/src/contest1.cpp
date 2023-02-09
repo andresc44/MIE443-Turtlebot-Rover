@@ -37,10 +37,10 @@
 #define RAD2DEG(rad) ((rad) * 180. / M_PI)  // Coversion function 
 #define DEG2RAD(deg) ((deg) * M_PI / 180.)  // Inverse conversion function
 #define SCAN_LENGTH 640                     // Elements in an array of scan, last index is SCAN_LENGTH-1
-#define B_OFFSET 192                        // Indeces difference from A to either B
+#define B_OFFSET 198                        // Indeces difference from A to either B
 #define A_THRESHOLD 0.617                   // Considered obstacle directly in front
-#define B_THRESHOLD 0.648                   // Considered wall in the window for passage
-#define C_THRESHOLD 0.7832                  // Side (30 degree) distances to check for free space
+#define B_THRESHOLD 0.65                    // Considered wall in the window for passage
+#define C_THRESHOLD 0.7788                  // Side (30 degree) distances to check for free space
 #define ODOM_ARRAY_LENGTH 50                // Max number of checkpoints per trial
 #define FORWARD_FAST_V 0.15                 // Velocity when far from walls
 #define FORWARD_SLOW_V 0.08                 // Velocity near walls
