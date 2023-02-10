@@ -1,4 +1,23 @@
-#include <ros/console.h>
+// Advanced Main Algorithm
+//MIE443 CONTEST 1  
+
+// Function variables: variable_name
+// Functions: functionName
+// Definitions: DEFINITION_NAME
+// Global variables: VariableName
+
+// 2 empty lines between functions
+// 1 empty line after if, else if, else, for, and while (unless followed by another '}' )
+// Initialization of variables at top in order of types
+// Comments aligned on function level
+// Comments start with space and capital
+
+//CONVENTION
+//CCW rotation is positive
+//forward is x direction
+//left is y direction
+
+//!!!!!!!LIBRARIES!!!!!!!!!!!!!!!!!!!!!#include <ros/console.h>
 #include "ros/ros.h"
 #include <geometry_msgs/Twist.h>
 #include <kobuki_msgs/BumperEvent.h>
@@ -8,62 +27,197 @@
 
 #include <stdio.h>
 #include <cmath>
-
 #include <chrono>
 
-// test 3
+//!!!!!!CONSTANTS!!!!!!!!!!!!!!!!!!!!!
+#define N_BUMPER (3)                        // Number of bumpers on kobuki base
+#define RAD2DEG(rad) ((rad) * 180. / M_PI)  // Coversion function 
+#define DEG2RAD(deg) ((deg) * M_PI / 180.)  // Inverse conversion function
+#define BACKWARD_V -0.05                    // Magnitude and direction in x axis
+#define TURNING_V 0.5                       // Rad/s
 
-#define N_BUMPER (3) //Number of bumpers on kobuki base
-#define RAD2DEG(rad) ((rad) * 180. / M_PI) //coversion function 
-#define DEG2RAD(deg) ((deg) * M_PI / 180.) //inverse conversion function
+//!!!!!!!!!!!GLOBAL VARIABLES!!!!!!!!!!!!!!!!!!!!!!!!!
+uint8_t l_state[3] = {1,0,0};
+uint8_t l_state[3] = {1,1,0};
+uint8_t r_state[3] = {0,0,1};
+uint8_t rm_state[3] = {0,1,1};
+uint8_t m_state[3] = {0,1,0};
+uint8_t lmr_state[3] = {1,1,1};
+uint8_t lr_state[3] = {1,0,1};
 
-uint8_t bumper[3] = {kobuki_msgs::BumperEvent::RELEASED, kobuki_msgs::BumperEvent::RELEASED, kobuki_msgs::BumperEvent::RELEASED};
-uint8_t leftState = bumper[kobuki_msgs::BumperEvent::LEFT]; // kobuki_msgs::BumperEvent::PRESSED if bumper is pressed, kobuki_msgs::BumperEvent::RELEASED otherwise
+uint8_t PressedBumper[3]={0,0,0};
+uint8_t Bumper[3] = {kobuki_msgs::BumperEvent::RELEASED, kobuki_msgs::BumperEvent::RELEASED, kobuki_msgs::BumperEvent::RELEASED};
+int32_t NLasers=0, DesiredNLasers=0, DesiredAngle=5;            // Laser parameters
+float Angular = 0.0;                                            // Declare rotational vel (z) rad/s
+float Linear = 0.1;                                             // Declare linear velocity (x) m/s
+float PosX = 0.0, PosY = 0.0, Yaw = 0.0;                        // Initialize odom position
+float MinLaserDist = std::numeric_limits<float>::infinity();    // Set minimum distance, volatile variable
+float Dist = 0.5;
+bool AnyBumperPressed = false; //reset variable to false
 
-float angular = 0.0; //declare rotational vel (z) rad/s
-float linear = 0.0; //declare linear velocity (x) m/s
-float posX = 0.0, posY = 0.0, yaw = 0.0; //initialize odom position
-float minLaserDist = std::numeric_limits<float>::infinity(); //set minimum distance, volatile variable
-int32_t nLasers=0, desiredNLasers=0, desiredAngle=5; //laser parameters
+ros::Publisher VelPub;
+// ros::Subscriber bumper_sub;
+// ros::Subscriber laser_sub;
+// ros::Subscriber odom;
+geometry_msgs::Twist Vel; //create message for velocities as Twist type
 
+// !!!!!!!!!!!!DECLARE FUNCTIONS!!!!!!!!!!!!!!!!!!!!!!!
+void reverse(ros::Publisher VelPub);
+void rotate(ros::Publisher VelPub,int angle);
+
+//!!!!!!!!!!CALLBACK FUNCTIONS!!!!!!!!!!!!!!!!!!!!!!
 void bumperCallback(const kobuki_msgs::BumperEvent::ConstPtr& msg)
 {
     // Access using bumper[kobuki_msgs::BumperEvent::{}] LEFT, CENTER, or RIGHT
-    bumper[msg->bumper] = msg->state; //assigns bumper array to match message based on msg message
-	//fill with your code
+    Bumper[msg->bumper] = msg->state;                           //assigns bumper array to match message based on msg message
+    AnyBumperPressed = false;
+    for (uint8_t i = 0; i < N_BUMPER; i++){
+        if (Bumper[i] == kobuki_msgs::BumperEvent::PRESSED){
+            // bumper[0] = leftState, bumper[1] = centerState, bumper[2] = rightState
+            AnyBumperPressed = true;
+            PressedBumper[i] = 1;
+        }
+
+        else PressedBumper[i] =0;
+    }
+
+    if (AnyBumperPressed) reverse(VelPub);
 }
+
 
 void laserCallback(const sensor_msgs::LaserScan::ConstPtr& msg)
 {
-    minLaserDist = std::numeric_limits<float>::infinity(); //no minimum distance 
-    nLasers = (msg->angle_max - msg->angle_min) / msg->angle_increment; //count how many lasers there are  per cycle
-    desiredNLasers = desiredAngle*M_PI / (180*msg->angle_increment); //offset desired
-    ROS_INFO("Size of laser scan array: %i and size of offset: %i", nLasers, desiredNLasers); //print statement
+    MinLaserDist = std::numeric_limits<float>::infinity(); //no minimum Distance 
+    NLasers = (msg->angle_max - msg->angle_min) / msg->angle_increment; //count how many lasers there are  per cycle
+    DesiredNLasers = DesiredAngle*M_PI / (180*msg->angle_increment); //offset desired
+    // ROS_INFO("Size of laser scan array: %i and size of offset: %i", NLasers, DesiredNLasers); //print statement
     
-    if (desiredAngle * M_PI / 180 < msg->angle_max && -desiredAngle * M_PI / 180 > msg->angle_min) {
-        for (uint32_t laser_idx = nLasers / 2 - desiredNLasers; laser_idx < nLasers / 2 + desiredNLasers; ++laser_idx){
-            minLaserDist = std::min(minLaserDist, msg->ranges[laser_idx]);
+    if (DesiredAngle * M_PI / 180 < msg->angle_max && -DesiredAngle * M_PI / 180 > msg->angle_min) {
+        for (uint32_t laser_idx = NLasers / 2 - DesiredNLasers; laser_idx < NLasers / 2 + DesiredNLasers; ++laser_idx){
+            MinLaserDist = std::min(MinLaserDist, msg->ranges[laser_idx]);
         }
     }
+    
     else { //edge cases?
-        for (uint32_t laser_idx = 0; laser_idx < nLasers; ++laser_idx) {
-            minLaserDist = std::min(minLaserDist, msg->ranges[laser_idx]);
+        for (uint32_t laser_idx = 0; laser_idx < NLasers; ++laser_idx) {
+            MinLaserDist = std::min(MinLaserDist, msg->ranges[laser_idx]);
         }
     }
 
 }
+
+
 void odomCallback (const nav_msgs::Odometry::ConstPtr& msg)
 {
-    posX = msg->pose.pose.position.x; //get x position
-    posY = msg->pose.pose.position.y; //get y position
-    yaw = tf::getYaw(msg->pose.pose.orientation); //covert from quaternion to yaw
+    //ROS_INFO("odom");
+    PosX = msg->pose.pose.position.x; //get x position
+    PosY = msg->pose.pose.position.y; //get y position
+    Yaw = tf::getYaw(msg->pose.pose.orientation); //covert from quaternion to Yaw
     tf::getYaw(msg->pose.pose.orientation); //not sure
-    ROS_INFO("Position: (%f, %f) Orientation: %f rad or %f degrees.", posX, posY, yaw, RAD2DEG(yaw)); //print statement
+    // ROS_INFO("Position: (%f, %f) Orientation: %f rad or %f degrees.", PosX, PosY, Yaw, RAD2DEG(Yaw)); //print statement
     
 //fill with your code
 }
 
-int main(int argc, char **argv)
+//!!!!!!!!!USER-DEFINED FUNCTIONS!!!!!!!!!!!!!!!!!!!!!!!!
+bool array_equal(uint8_t array_1[], uint8_t array_2[]) {
+    for (int i =0; i< 2; i++){
+        if (array_1[i] != array_2[i] ) {
+            return false;
+        }
+    }
+
+    return true;
+}
+
+
+int forward(ros::Publisher VelPub, float linear_vel, float distance)
+{
+    ros::Rate loop_rate(10);
+    std::chrono::time_point<std::chrono::system_clock> start;       //initialize timer
+
+    Vel.angular.z = 0.0;
+    Vel.linear.x = linear_vel;
+    uint64_t secondsElapsed = 0;                                    //variable for time that has passed
+    float time_forward = abs(distance/linear_vel);
+
+    start = std::chrono::system_clock::now();                       //start the timer
+
+    while (ros::ok() && secondsElapsed <= time_forward && !AnyBumperPressed) {
+        VelPub.publish(Vel);
+        ros::spinOnce();                                            //listen to all subscriptions once
+        // if (AnyBumperPressed) {
+        //     break;
+        // }
+        loop_rate.sleep();
+        secondsElapsed = std::chrono::duration_cast<std::chrono::seconds>(std::chrono::system_clock::now()-start).count(); //count how much time has passed
+    }
+}
+
+
+void reverse(ros::Publisher VelPub) {                               // Called if any bumper pressed
+    ros::Rate loop_rate(10);
+    std::chrono::time_point<std::chrono::system_clock> start;       // Initialize timer
+
+    Vel.linear.x = BACKWARD_V;                                      // Set linear to Twist
+    uint64_t seconds_elapsed = 0;                                   // New variable for time that has passed    
+    int angle = 0;
+
+    start = std::chrono::system_clock::now();                       // Start new timer at current time
+
+    while (ros::ok() && seconds_elapsed <= 4) {                     // Kobuki diameter is 0.3515m, we want to travel half (3.5s x 0.05m/s) 
+        VelPub.publish(Vel);                                        // Publish cmd_vel to teleop mux input
+        loop_rate.sleep();
+        seconds_elapsed = std::chrono::duration_cast<std::chrono::seconds>(std::chrono::system_clock::now()-start).count(); // Count how much time has passed
+    }
+    
+    if (array_equal(PressedBumper,l_state)) angle = -45;            // Left bumper, rotate right (right is neg)
+    
+    else if (array_equal(PressedBumper, l_state)) angle = -90;     // Left and middle pressed only
+
+    else if (array_equal(PressedBumper,r_state)) angle = 45;        // Right pressed only, rotate left (pos)
+
+    else if (array_equal(PressedBumper,rm_state)) angle = 90;       // Right and middle pressed only, rotate left
+
+    else if (array_equal(PressedBumper,m_state)) {                  // Middle pressed only
+        // Rotate random angle
+        int array_angles[2] = {90, -90};                            // Array of random angles
+        int rand_num = rand() % 2;                                  // Random number from 0 to 1
+        angle = array_angles[rand_num];                             // Index the array angles using random number, to rotate either left or right 90 degrees
+    }
+
+    else if  (array_equal(PressedBumper,lmr_state) || array_equal(PressedBumper,lr_state)) { // All pressed or left and right pressed
+       // Rotate random angle
+        int array_angles[2] = {135, -135};                          // Array of random angles
+        int rand_num = rand() % 2;                                  // Random number from 0 to 1
+        angle = array_angles[rand_num];                             // Index the array angles using random number, to rotate either left or right 135 degrees 
+    }
+   
+    rotate(VelPub, angle);                                          // Rotate function
+}
+
+   
+void rotate(ros::Publisher VelPub, int angle_rot){                  // Called with input as an angle in degree
+    
+   uint32_t angle_rad = DEG2RAD(angle_rot);                         // Function takes in an angle in degrees, converts it to rad
+   uint32_t turning_time = angle_rad/TURNING_V;                     // Calculates the time needed to turn based on constant turning speed, and the angle
+       
+   std::chrono::time_point<std::chrono::system_clock> start;        // Initialize timer
+   start = std::chrono::system_clock::now();                        // Start new timer at current time
+   uint64_t seconds_elapsed = 0;                                    // New variable for time that has passed
+    
+   ros::Rate loop_rate(10);
+   Vel.angular.z = TURNING_V;                                       // Set turning speed  
+   
+    while (ros::ok() && seconds_elapsed <= turning_time) {           // Turn until the turning time needed to complete the angle is passed   
+        VelPub.publish(Vel);                                        // Start turning
+        loop_rate.sleep();
+        seconds_elapsed = std::chrono::duration_cast<std::chrono::seconds>(std::chrono::system_clock::now()-start).count(); //count how much time has passed
+    }
+}
+
+
+int main(int argc, char**argv)
 {
     ros::init(argc, argv, "image_listener"); //node name
     ros::NodeHandle nh;                      //initialize node handler
@@ -71,64 +225,11 @@ int main(int argc, char **argv)
     ros::Subscriber bumper_sub = nh.subscribe("mobile_base/events/bumper", 10, &bumperCallback); //subscribe to bump topic with callback
     ros::Subscriber laser_sub = nh.subscribe("scan", 10, &laserCallback); //subscribe  to /scan topic
     ros::Subscriber odom = nh.subscribe("odom", 1, &odomCallback); //NEW
-    ros::Publisher vel_pub = nh.advertise<geometry_msgs::Twist>("cmd_vel_mux/input/teleop", 1); //publish cmd_velocity as Twist message
+    VelPub = nh.advertise<geometry_msgs::Twist>("cmd_vel_mux/input/teleop", 1); //publish cmd_velocity as Twist message
 
     ros::Rate loop_rate(10); //code will try to run at 10 Hz
 
-    geometry_msgs::Twist vel; //create message for velocities as Twist type
-
-    // contest count down timer
-    std::chrono::time_point<std::chrono::system_clock> start; //initialize timer
-    start = std::chrono::system_clock::now(); //start the timer
-    uint64_t secondsElapsed = 0; //variable for time that has passed
-    
-
-    while(ros::ok() && secondsElapsed <= 480) { //while ros master running and < 8 minutes
-        ROS_INFO("Postion: (%f, %f) Orientation: %f degrees Range: %f", posX, posY, RAD2DEG(yaw), minLaserDist); //print current state of everything, !!!!!!!CHANGED 2 LINES
-        ros::spinOnce(); //listen to all subscriptions once
-        //fill with your code
-
-        //
-        // Check if any of the bumpers were pressed.
-        bool any_bumper_pressed = false; //reset variable to false
-        for (uint32_t b_idx = 0; b_idx < N_BUMPER; ++b_idx) { //check all 3 bumpers
-        any_bumper_pressed |= (bumper[b_idx] == kobuki_msgs::BumperEvent::PRESSED); //updates variable if ANY are pressed
-        }
-        //
-        // Control logic after bumpers are being pressed.
-        if (posX < 0.5 && yaw < M_PI / 12 && !any_bumper_pressed) { //move forward 20cm
-            angular = 0.0; 
-            linear = 0.2;
-        }
-        else if (yaw < M_PI / 2 && posX > 0.5 && !any_bumper_pressed) { //turn left
-            angular = M_PI / 6;
-            linear = 0.0;
-        }
-        else if (minLaserDist > 1. && !any_bumper_pressed) { //go straight and then decide if turning
-            linear = 0.1;
-            if (yaw < 17 / 36 * M_PI || posX > 0.6) { //turn left a lil
-                angular = M_PI / 12.;
-            }
-            else if (yaw < 19 / 36 * M_PI || posX < 0.4) { //turn right a lil
-                angular = -M_PI / 12.;
-            }
-            else { //don't turn
-                angular = 0;
-            }
-        }
-        else { //stop moving
-            angular = 0.0;
-            linear = 0.0;
-        }
-
-        vel.angular.z = angular; //set rotation to Twist
-        vel.linear.x = linear; //set linear to Twist
-        vel_pub.publish(vel); //publish cmd_vel to teleop mux input
-
-        // The last thing to do is to update the timer.
-        secondsElapsed = std::chrono::duration_cast<std::chrono::seconds>(std::chrono::system_clock::now()-start).count(); //count how much time has passed
-        loop_rate.sleep(); //delay function for 100ms
-    }
+    forward(VelPub, Linear, Dist);
 
     return 0;
 }
