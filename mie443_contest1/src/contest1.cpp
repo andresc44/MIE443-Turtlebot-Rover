@@ -26,6 +26,8 @@
 #include <nav_msgs/Odometry.h>
 #include <tf/transform_datatypes.h>
 
+
+
 #include <stdio.h>
 #include <cmath>
 #include <chrono>
@@ -345,36 +347,140 @@ int nearestCheckpoint() {                           // Which direction will guid
     return is_left_away_from_centroid;
 }
 
+// !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+// 2 Functions below are untested and contain bugs
+
+// #define SIDE_DISTANCE 0.4           // Distance to check to our lefts for unexplored areas (m)
+// #define BLOCK_SIZE 2                // Area checked for occupancy is of size (BLOCK_SIZE * 2 + 1) ^2
+// #define TOTAL_BLOCKS (BLOCK_SIZE * 2 + 1) * (BLOCK_SIZE * 2 + 1)
+// #define UNEXPLORED_THRESH 0.7       // Max Threshold for whether a given area has been explored
+// #include <nav_msgs/OccupancyGrid.h>
+
+// uint64_t GridX = 0;
+// uint64_t GridY = 0;
+// float MapResolution = 0;
+// long int MapWidth = 1;
+// long int MapHeight = 1;
+
+// //global pointer set to null
+// std::vector<std::vector<float>> *MapPointer = new std::vector<std::vector<float>>;
+
+
+// void occupancyCallback(const nav_msgs::OccupancyGrid::ConstPtr& msg)
+// {
+//     // ROS_INFO("ranges: %f", msg->ranges[0]);
+//     // int occup_array[] = msg->data;
+//     tf::TransformListener listener;
+//     tf::StampedTransform transform;
+
+//     MapResolution =msg->info.resolution;
+//     MapWidth = msg->info.width;
+//     MapHeight = msg->info.height;
+//     map_array = msg->data;
+
+//     std::vector<std::vector<float>> map_array{MapWidth, std::vector<float>(MapHeight)}; //!!!This has to be fixed
+//     map_array = msg->data;
+
+//     //assign global pointer to point at vector above
+//     MapPointer = &map_array; // Not exactly this
+
+//     float origin_x = msg->info.origin.position.x;
+//     float origin_y = msg->info.origin.position.y;
+//     // float origin_yaw = RAD2DEG(tf::getYaw(msg->info.origin.quaternion));
+
+//     try listener.lookupTransform("/map", "/base_link", ros::Time(0), transform);
+
+//     catch (tf::TransformException &ex) {
+//         ROS_ERROR("%s",ex.what());
+//         ros::Duration(1.0).sleep();
+//         continue;
+//     }
+
+//     float map_x = transform.getOrigin().x();
+//     float map_y = transform.getOrigin().y();
+
+//     // must get map_x and map_y from transform
+//     GridX = (unsigned int)((map_x - origin_x) / MapResolution)
+//     GridY = (unsigned int)((map_y - origin_y) / MapResolution)
+    
+// }
+
+
+// int newFrontier() {
+//     long int surrounding_x = 0;
+//     long int surrounding_y = 0;
+//     float left_counter = 0;
+//     float right_counter = 0;
+//     bool left_in_bounds = true;
+//     bool right_in_bounds = true;
+//     int occup_dec = 0;
+
+//     long int matrix_x = GridX //Need to change
+//     long int matrix_y = Gridy //Same
+
+//     float x_delta = SIDE_DISTANCE * sinf(Yaw);
+//     float y_delta = SIDE_DISTANCE * cosf(Yaw);
+//     int x_disc = (int)(x_delta/MapResolution);
+//     int y_disc = (int)(y_delta/MapResolution);
+
+//     long int left_index_x = matrix_x + x_disc;
+//     long int left_index_y = matrix_y - y_disc;
+//     long int right_index_x = matrix_x - x_disc;
+//     long int right_index_y = matrix_y + y_disc;
+
+//     // bool surrounding_in_bounds = true;
+
+//     if ((left_index_x < 0) || (left_index_y < 0) || (left_index_x > MapWidth) || (left_index_y > MapHeight)) {
+//         //Left is out of map bounds
+//         left_in_bounds = false;        
+//     }
+
+//     else long int left_centre[2] = {left_index_x, left_index_y};
+
+//     if ((right_index_x < 0) || (right_index_y < 0) || (right_index_x > MapWidth) || (right_index_y > MapHeight)) {
+//         //Right is out of map bounds
+//         right_in_bounds = false;        
+//     }
+
+//     else long int right_centre[2] = {right_index_x, right_index_y};
+
+//     for (int i = -BLOCK_SIZE; i <= BLOCK_SIZE; i++) {
+//         for (int j = -BLOCK_SIZE; j <= BLOCK_SIZE; j++) {
+//             // surrounding_in_bounds = true;
+//             if (left_in_bounds) {          
+//                 surrounding_x = left_centre[0] + i;
+//                 surrounding_y = left_centre[1] + j;
+
+//                 if ((surrounding_x >= 0) && (surrounding_y >= 0) && (surrounding_x <= MapWidth) && (surrounding_y <= MapHeight)) {
+//                     // If the dot in the left surounding area is a valid point in map
+//                     left_counter += map_array[surrounding_x, surrounding_y]
+//                 }
+//             }
+
+//             if (right_in_bounds) {          
+//                 surrounding_x = right_centre[0] + i;
+//                 surrounding_y = right_centre[1] + j;
+
+//                 if ((surrounding_x >= 0) && (surrounding_y >= 0) && (surrounding_x <= MapWidth) && (surrounding_y <= MapHeight)) {
+//                     // If the dot in the right surounding area is a valid point in map
+//                     right_counter += map_array[surrounding_x, surrounding_y]
+//                 }
+//             }
+//         }
+//     }
+
+//     float left_avg = left_counter / TOTAL_BLOCKS;
+//     float right_avg = right_counter / TOTAL_BLOCKS;
+
+//     if (left_avg < UNEXPLORED_THRESH) occup_dec += 1;
+//     if (right_avg < UNEXPLORED_THRESH) occup_dec -= 1;
+
+//     return occup_dec;
+// }
 
 int newFrontier() {
-    //!!!!!!TO-DO!!!!!!
-    // Check Occupancy Grid map
-    //!!!!!!TO-DO!!!!!!
-
-    // delta (float, default: 0.05)
-    // Resolution of the map (in metres per occupancy grid block)
-
-    // https://answers.ros.org/question/10268/where-am-i-in-the-map/
-    
-    // Map metadata
-    // # This hold basic information about the characterists of the OccupancyGrid
-
-    // # The time at which the map was loaded
-    // time map_load_time
-    // # The map resolution [m/cell]
-    // float32 resolution
-    // # Map width [cells]
-    // uint32 width
-    // # Map height [cells]
-    // uint32 height
-    // # The origin of the map [m, m, rad].  This is the real-world pose of the
-    // # cell (0,0) in the map.
-    // geometry_msgs/Pose origin
-
     return 0;
-
 }
-
 
 
 // !!!!!!!!!!!!!MAIN!!!!!!!!!!!!!!!!!!!!!!!!!!
@@ -386,7 +492,8 @@ int main(int argc, char **argv)
 
     ros::Subscriber bumper_sub = nh.subscribe("mobile_base/events/bumper", 10, &bumperCallback); //subscribe to bump topic with callback
     ros::Subscriber laser_sub = nh.subscribe("scan", 10, &laserCallback);       // Subscribe  to /scan topic
-    ros::Subscriber odom = nh.subscribe("odom", 1, &odomCallback);
+    ros::Subscriber odom_sub = nh.subscribe("odom", 1, &odomCallback);
+    // ros::Subscriber map_sub = nh.subscribe("map", 1, &occupancyCallback);
     VelPub = nh.advertise<geometry_msgs::Twist>("cmd_vel_mux/input/teleop", 1); // Publish cmd_velocity as Twist message
 
     uint64_t seconds_elapsed = 0;                               // Variable for time that has passed
@@ -493,5 +600,6 @@ int main(int argc, char **argv)
         seconds_elapsed = std::chrono::duration_cast<std::chrono::seconds>(std::chrono::system_clock::now()-start).count(); //count how much time has passed
         loop_rate.sleep();                              // Delay function for 100ms
     }
+    // delete MapPointer;
     return 0;
 }
