@@ -48,16 +48,16 @@
 #define FORWARD_FAST_V 0.6   //!!!!!            // Velocity when far from walls
 #define FORWARD_SLOW_V 0.4   //!!!!!            // Velocity near walls
 #define STEP_SIZE 0.2                           // Size of Forward steps (m)
-#define BACKWARD_V -0.05                        // Magnitude and direction in x axis
-#define BACKWARD_T KOBUKI_DIAM /2 /BACKWARD_V   // Move backwards a distance == to the radius of the turtlebot
+#define BACKWARD_V -0.1                        // Magnitude and direction in x axis
+#define BACKWARD_T 3.5  // Move backwards a distance == to the radius of the turtlebot
 #define LOOP_RATE 10                            // Rate for while loops that dictate callback and publish frequency (Hz)
 #define TURNING_V 1         //!!!!!             // Rad/s
 #define MAX_OBST_DIST 0.5                       // If less than this, we should turn, meters
-#define STOPS_SPACING 2     //!!!!!             // Distance between checkpoints, meters
+#define STOPS_SPACING 2.5     //!!!!!             // Distance between checkpoints, meters
 #define TURNING_LIM 3000                        // Amounts of total degrees turned before turning robot around
 #define OCCUP_WEIGHT 10                         // Weights for each factor
 #define ODOM_WEIGHT 10
-#define SCAN_WEIGHT 10
+#define SCAN_WEIGHT 0
 #define ADJUST_ANGLE 15                         // How much to adjust robot by when wall detected on sides, degrees
 // #define CHECKPOINT_RADIUS 0.2                // How close are we to a previous checkpoint, may remove
 const int CENTRE_INDEX = SCAN_LENGTH / 2 -1;    // Get index for the middle index for the A value
@@ -176,6 +176,7 @@ float distance(std::vector<float> prev_odom, std::vector<float> new_odom){     /
 
 int forward(ros::Publisher VelPub, float linear_vel, float distance)
 {
+    ROS_INFO("forward");
     ros::Rate loop_rate(LOOP_RATE);
     std::chrono::time_point<std::chrono::system_clock> start;       // Initialize timer
 
@@ -199,6 +200,7 @@ int forward(ros::Publisher VelPub, float linear_vel, float distance)
 
 
 void reverse(ros::Publisher VelPub) {                               // Called if any bumper pressed
+    ROS_INFO("reverse");
     ros::Rate loop_rate(LOOP_RATE);
     std::chrono::time_point<std::chrono::system_clock> start;       // Initialize timer
 
@@ -213,6 +215,7 @@ void reverse(ros::Publisher VelPub) {                               // Called if
         VelPub.publish(Vel);                                        // Publish cmd_vel to teleop mux input
         loop_rate.sleep();
         seconds_elapsed = std::chrono::duration_cast<std::chrono::seconds>(std::chrono::system_clock::now()-start).count(); // Count how much time has passed
+        //ROS_INFO("seconds_elapsed:%i,backward_T:%f",seconds_elapsed,BACKWARD_T);
     }
     
     if (arrayEqual(PressedBumper,LState)) angle = -45;            // Left bumper, rotate right (right is neg)
@@ -242,7 +245,9 @@ void reverse(ros::Publisher VelPub) {                               // Called if
 
 
 void rotate(ros::Publisher VelPub, int angle_rot){                  // Called with input as an angle in degree
-    
+    ROS_INFO("rotate");
+    ROS_INFO("angle: %i",angle_rot);
+
    int dir = sign(angle_rot);
 //    ROS_INFO("direction: %i", dir);
    float angle_rad = DEG2RAD(dir*angle_rot);                        // Function takes in an angle in degrees, converts it to rad
@@ -522,6 +527,7 @@ int main(int argc, char **argv)
         //TO-DO!!!!!!!!!!
         //add criteria to do checkpoint of forward happens uninterreupted
         //TO-DO!!!!!!!!!!
+
         if (dist_travelled > STOPS_SPACING) {           // Checks space since last checkpoint
             ROS_INFO("New checkpoint location");
             last_odom = CurrOdom;                       // Reset reference location
