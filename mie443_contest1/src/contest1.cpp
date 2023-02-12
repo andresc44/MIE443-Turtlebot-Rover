@@ -25,7 +25,7 @@
 #include <sensor_msgs/LaserScan.h>
 #include <nav_msgs/Odometry.h>
 #include <tf/transform_datatypes.h>
-
+#include "std_msgs/String.h"
 
 
 #include <stdio.h>
@@ -48,17 +48,18 @@
 #define FORWARD_FAST_V 0.6   //!!!!!            // Velocity when far from walls
 #define FORWARD_SLOW_V 0.4   //!!!!!            // Velocity near walls
 #define STEP_SIZE 0.2                           // Size of Forward steps (m)
-#define BACKWARD_V -0.1                        // Magnitude and direction in x axis
-#define BACKWARD_T 3.5  // Move backwards a distance == to the radius of the turtlebot
+#define BACKWARD_V -0.2                         // Magnitude and direction in x axis
+#define BACKWARD_T 0.88                         // Move backwards a distance == to the radius of the turtlebot
 #define LOOP_RATE 10                            // Rate for while loops that dictate callback and publish frequency (Hz)
 #define TURNING_V 1         //!!!!!             // Rad/s
 #define MAX_OBST_DIST 0.5                       // If less than this, we should turn, meters
-#define STOPS_SPACING 2.5     //!!!!!             // Distance between checkpoints, meters
-#define TURNING_LIM 3000                        // Amounts of total degrees turned before turning robot around
+#define STOPS_SPACING 2.5     //!!!!!           // Distance between checkpoints, meters
+#define TURNING_LIM 500                         // Amounts of total degrees turned before turning robot around
 #define OCCUP_WEIGHT 10                         // Weights for each factor
 #define ODOM_WEIGHT 10
 #define SCAN_WEIGHT 0
 #define ADJUST_ANGLE 15                         // How much to adjust robot by when wall detected on sides, degrees
+#define CONSECUTIVE_TILTS 8                     // Number of consecutive tilts to occur before thinking of it as a mistake
 // #define CHECKPOINT_RADIUS 0.2                // How close are we to a previous checkpoint, may remove
 const int CENTRE_INDEX = SCAN_LENGTH / 2 -1;    // Get index for the middle index for the A value
 
@@ -95,7 +96,10 @@ float BPlus = 0;
 float CPlus = 0;
 
 ros::Publisher VelPub;
+ros::Publisher OutputPub;
 geometry_msgs::Twist Vel;                                       // Create message for velocities as Twist type
+std_msgs::String Message;
+std::stringstream StringContent;
 
 // !!!!!!!!!!!!DECLARE FUNCTIONS!!!!!!!!!!!!!!!!!!!!!!!
 void reverse(ros::Publisher VelPub);
@@ -176,7 +180,9 @@ float distance(std::vector<float> prev_odom, std::vector<float> new_odom){     /
 
 int forward(ros::Publisher VelPub, float linear_vel, float distance)
 {
-    ROS_INFO("forward");
+    if (linear_vel == FORWARD_FAST_V) ROS_INFO("forward fast!");
+    else if (linear_vel == FORWARD_SLOW_V) ROS_INFO("forward slow");
+    else ROS_INFO("Forward but unsure why");
     ros::Rate loop_rate(LOOP_RATE);
     std::chrono::time_point<std::chrono::system_clock> start;       // Initialize timer
 
@@ -295,6 +301,9 @@ uint8_t determineScanType() { // Detect environment classification based on scan
 
     else if (BM && AC && BP) {
         state = 2;                      // Forward slow
+        if (!CM && !CP) ROS_INFO("C minus and plus are not clear");
+        else if (!CM) ROS_INFO("Just C minus blocked");
+        else if (!CP) ROS_INFO("Just C plus blocked");
     }
 
     else if (AC && BP) {
@@ -310,7 +319,9 @@ uint8_t determineScanType() { // Detect environment classification based on scan
     else if ((!AC && !BP) || (!AC && !BM) || (!BM && !BP)) {
         state = 5;
         if (CP) TurningBias += 1;       // Turn left
+        ROS_INFO("Open space left");
         if (CM) TurningBias = -1;       // Turn right
+        ROS_INFO("Open space right");
         
     }
 
@@ -500,13 +511,13 @@ int main(int argc, char **argv)
     ros::Subscriber odom_sub = nh.subscribe("odom", 1, &odomCallback);
     // ros::Subscriber map_sub = nh.subscribe("map", 1, &occupancyCallback);
     VelPub = nh.advertise<geometry_msgs::Twist>("cmd_vel_mux/input/teleop", 1); // Publish cmd_velocity as Twist message
-
+    OutputPub = nh.advertise<std_msgs::String>("feedback", 1000);
     uint64_t seconds_elapsed = 0;                               // Variable for time that has passed
     uint8_t scan_mode = 0;                                      // List of X states
+    uint8_t bad_tilt_counter = 0;                               // Number of consecutive tilts done
     int checkpoint_counter = 1;             
     float rotation = 0;                             
     float dist_travelled = 0;                                   // How much moved since last checkpoint
-    std::vector<float> last_odom{0,0};                          // Location of last point
     long turning_count = 0;                                     // Accumulation of how much travelled
     bool just_rotated = false;                                  // Did we just make a 90 degree turn?
     bool is_in_corner = false;                                  // Did we just make a 90 degree turn?
@@ -515,12 +526,27 @@ int main(int argc, char **argv)
     int occup_cmd = 0;
     int odom_cmd = 0;
     long int seconds_long = 0;
+    long int loop_iterations = 0;
+
+
+
+    ros::spinOnce();
+    std::vector<float> last_odom = CurrOdom;                          // Location of last point
+    OdomArray[0] = last_odom;
+    
     geometry_msgs::Twist vel;                                   // Create message for velocities as Twist type
     std::chrono::time_point<std::chrono::system_clock> start;   // Initialize timer
     start = std::chrono::system_clock::now();                   // Start the timer
 
     while(ros::ok() && seconds_elapsed <= 480) {        // While ros master running and < 8 minutes
         ros::spinOnce();                                // Listen to all subscriptions once
+        loop_iterations += 1;
+        if (loop_iterations < 5) {
+            ros::spinOnce();
+            loop_rate.sleep();
+            continue;
+
+        }
         seconds_long = seconds_elapsed;
         ROS_INFO("\nTime: %ld, Pos: (%f, %f),  Ori: %f deg, turning_cnt: %ld", seconds_long, CurrOdom[0], CurrOdom[1], Yaw, turning_count); //print current state of everything, !!!!!!!CHANGED 2 LINES
         dist_travelled = distance(last_odom, CurrOdom); // Distance is function to determine distance between 2 coordinates
@@ -529,7 +555,7 @@ int main(int argc, char **argv)
         //TO-DO!!!!!!!!!!
 
         if (dist_travelled > STOPS_SPACING) {           // Checks space since last checkpoint
-            ROS_INFO("New checkpoint location");
+            ROS_INFO("New checkpoint location, doing 360");
             last_odom = CurrOdom;                       // Reset reference location
             dist_travelled = 0;
             OdomArray[checkpoint_counter] = CurrOdom;   // Keeps track of locations of all past checkpoints, leaves first index as 0,0
@@ -541,26 +567,57 @@ int main(int argc, char **argv)
         
         scan_mode = determineScanType();                // Recognize different possibilities based on scan array, also look at changes in odom
         ROS_INFO("Scan Mode: %i", scan_mode);
+
+        // !!!!!Print message to topic: feedback
+        StringContent << "Scan Mode: " << scan_mode;
+        Message.data = StringContent.str();
+        OutputPub.publish(Message);
+
         if (scan_mode < 3) {
-            IsNearWall? forward(VelPub, FORWARD_SLOW_V, STEP_SIZE): forward(VelPub, FORWARD_FAST_V, STEP_SIZE);  
+            if (IsNearWall) {
+                forward(VelPub, FORWARD_SLOW_V, STEP_SIZE);
+                ROS_INFO("trying to go forward slow");
+            }
+            else {
+                forward(VelPub, FORWARD_FAST_V, STEP_SIZE);
+                ROS_INFO("trying to go forward fast");
+
+            }
+            
+            // IsNearWall? forward(VelPub, FORWARD_SLOW_V, STEP_SIZE): forward(VelPub, FORWARD_FAST_V, STEP_SIZE);
+            bad_tilt_counter = 0;
+            loop_rate.sleep();
         }
 
         else if ((scan_mode == 3) || (scan_mode == 4)){ //Tilt
+            ROS_INFO("Minor tilt");
+            if (bad_tilt_counter >= CONSECUTIVE_TILTS) {
+                reverse(VelPub);
+                rotate(VelPub, 180);
+                ROS_INFO("I'm stuck in a tilt loop, turning around now");
+                turning_count = 0;
+                continue;
+            }
             rotation = TurningBias*ADJUST_ANGLE;
             rotate(VelPub, rotation);                   // Fix allignment by ~ 15 degrees depending on direction of bias
             turning_count += rotation;                  // Keep track of turning
+            bad_tilt_counter += 1;                      // Track how many times we've done a consecutive tilt
         }
 
         else if (scan_mode == 5) {                      // Front wall
+            bad_tilt_counter = 0;
             if (just_rotated) {                         // Bad turning decision, we're at a corner and turned into other wall
+                ROS_INFO("I think I'm in a corner and going the other way");
                 rotate(VelPub, 180);                    // Turn around, think about a dead end corridor situation
                 is_in_corner = true;
                 turning_count += -decision*180;         // If we made the wrong choice before, we want to overwrite that contribution to the count and add accordingly
                 just_rotated = false;                   // Reset flag
+                
                 continue;
             }
 
             else if (is_in_corner) {
+                ROS_INFO("I think I just hit a 3 way dead end and am going back");
                 rotate(VelPub, -decision*90);
                 turning_count += decision*90; 
                 is_in_corner = false;
@@ -568,12 +625,14 @@ int main(int argc, char **argv)
             }
 
             if (turning_count > TURNING_LIM) {          // We've been turning too much
+                ROS_INFO("I think I rotated too much left, turning around");
                 rotate(VelPub, 180);                    // Go other direction
                 turning_count = 0;                      // Reset flag
                 continue;
             }
 
             else if (turning_count < -TURNING_LIM) {    // Same as above in other direction
+                ROS_INFO("I think I rotated too much right, turning around");
                 rotate(VelPub, 180);
                 turning_count = 0;
                 continue;
@@ -601,6 +660,7 @@ int main(int argc, char **argv)
         else {
             rotate(VelPub, 180); //robot is confused
             turning_count = 0;
+            bad_tilt_counter = 0;
         }
 
         seconds_elapsed = std::chrono::duration_cast<std::chrono::seconds>(std::chrono::system_clock::now()-start).count(); //count how much time has passed
