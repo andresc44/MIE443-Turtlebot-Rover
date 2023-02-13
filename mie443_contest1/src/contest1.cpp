@@ -44,15 +44,15 @@
 #define A_THRESHOLD 0.617                       // Considered obstacle directly in front
 #define B_THRESHOLD 0.65                        // Considered wall in the window for passage
 #define C_THRESHOLD 0.7788                      // Side (30 degree) distances to check for free space
-#define ACF_THRESHOLD 1      //!!!!!!!          // Distance directly ahead to start slowing down by
+#define ACF_THRESHOLD 0.9      //!!!!!!!          // Distance directly ahead to start slowing down by
 #define ODOM_ARRAY_LENGTH 50                    // Max number of checkpoints per trial
-#define FORWARD_FAST_V 0.6   //!!!!!            // Velocity when far from walls
-#define FORWARD_SLOW_V 0.3   //!!!!!            // Velocity near walls
+#define FORWARD_FAST_V 0.25   //!!!!!            // Velocity when far from walls
+#define FORWARD_SLOW_V 0.1   //!!!!!            // Velocity near walls
 #define STEP_SIZE 0.15                          // Size of Forward steps (m)
-#define BACKWARD_V -0.2                         // Magnitude and direction in x axis
-#define BACKWARD_T 0.88                         // Move backwards a distance == to the radius of the turtlebot
+#define BACKWARD_V -0.1                         // Magnitude and direction in x axis
+#define BACKWARD_T 1.758                         // Move backwards a distance == to the radius of the turtlebot
 #define LOOP_RATE 10                            // Rate for while loops that dictate callback and publish frequency (Hz)
-#define TURNING_V 1         //!!!!!             // Rad/s
+#define TURNING_V 0.6         //!!!!!             // Rad/s
 #define MAX_OBST_DIST 0.5                       // If less than this, we should turn, meters
 #define STOPS_SPACING 2.5     //!!!!!           // Distance between checkpoints, meters
 #define TURNING_LIM 500                         // Amounts of total degrees turned before turning robot around
@@ -129,7 +129,7 @@ void bumperCallback(const kobuki_msgs::BumperEvent::ConstPtr& msg)
 void laserCallback(const sensor_msgs::LaserScan::ConstPtr& msg)
 {
     // ROS_INFO("ranges: %f", msg->ranges[0]);
-    CMinus = msg->ranges[0];
+    CMinus = msg->ranges[7];
     BMinus = msg->ranges[CENTRE_INDEX - B_OFFSET];
     ACentre = msg->ranges[CENTRE_INDEX];
     BPlus = msg->ranges[CENTRE_INDEX + B_OFFSET];
@@ -263,7 +263,7 @@ void rotate(ros::Publisher VelPub, int angle_rot){                  // Called wi
    start = std::chrono::system_clock::now();                        // Start new timer at current time
    uint64_t seconds_elapsed = 0;                                    // New variable for time that has passed
     
-   ros::Rate loop_rate(LOOP_RATE);
+   ros::Rate loop_rate(100);
    Vel.linear.x = 0;
    Vel.angular.z = dir * TURNING_V;                                 // Set turning speed  
 //    ROS_INFO("direction: %f", dir*TURNING_V);
@@ -298,7 +298,7 @@ uint8_t determineScanType() { // Detect environment classification based on scan
     // ROS_INFO("5 points left to right: %i, %i, %i, %i, %i", CP, BP, AC, BM, CM);
 
 
-    if (CM && BM && AC_far && BP) {
+    if (CM && BM && AC_far && BP && CP) {
         state = 1;                      // Forward fast
         IsNearWall = false;
     }
@@ -323,15 +323,18 @@ uint8_t determineScanType() { // Detect environment classification based on scan
 
     else if ((!AC && !BP) || (!AC && !BM) || (!BM && !BP)) {
         state = 5;
-        if (CP) TurningBias += 1;       // Turn left
-        ROS_INFO("Open space left");
-        if (CM) TurningBias = -1;       // Turn right
-        ROS_INFO("Open space right");
-        
+        if (CP) {
+            TurningBias += 1;       // Turn left
+            ROS_INFO("Open space left");
+        }
+        if (CM) {
+            TurningBias = -1;       // Turn right
+            ROS_INFO("Open space right");
+        }
     }
 
     else {
-        state = 6;                      // Confused
+        state = 6;                      // A is neg or nan, or noise
     }
 
     return state;
@@ -552,6 +555,38 @@ int main(int argc, char **argv)
             continue;
 
         }
+
+        // int remainder = loop_iterations % 6;
+        // forward(VelPub, FORWARD_SLOW_V, STEP_SIZE);
+        // if (remainder == 0) {
+            // rotate(VelPub, 90);
+        // }
+        // else if (remainder == 1) {
+        //    rotate(VelPub, -90);
+        // }
+        // else if (remainder == 2) {
+        //    rotate(VelPub, 45);
+        // }
+        // else if (remainder == 3) {
+        //    rotate(VelPub, -45);
+        // }
+        // else if (remainder == 4) {
+        //    rotate(VelPub, 180);
+        //    rotate(VelPub, 90);
+        //    rotate(VelPub, 90);
+        // }
+        // else if (remainder == 5) {
+        //    rotate(VelPub, 402);
+        //    rotate(VelPub, 90);
+        //    rotate(VelPub, 90);
+        //    rotate(VelPub, 90);
+        //    rotate(VelPub, 105);
+        //    rotate(VelPub, -45);
+// 
+        // }
+        
+        // continue;
+// 
         seconds_long = seconds_elapsed;
         ROS_INFO("\nTime: %ld, Pos: (%f, %f),  Ori: %f deg, turning_cnt: %ld", seconds_long, CurrOdom[0], CurrOdom[1], Yaw, turning_count); //print current state of everything, !!!!!!!CHANGED 2 LINES
         dist_travelled = distance(last_odom, CurrOdom); // Distance is function to determine distance between 2 coordinates
@@ -565,7 +600,11 @@ int main(int argc, char **argv)
             dist_travelled = 0;
             OdomArray[checkpoint_counter] = CurrOdom;   // Keeps track of locations of all past checkpoints, leaves first index as 0,0
             checkpoint_counter += 1;
-            rotate(VelPub, 360);                        // Scan area. positive is counterclockwise
+            // rotate(VelPub, 360);                        // Scan area. positive is counterclockwise
+            rotate(VelPub, 90);
+            rotate(VelPub, 90);
+            rotate(VelPub, 90);
+            rotate(VelPub, 105);
             // rotate(VelPub, 600); // Just for simulation
             continue;
         }
@@ -670,8 +709,10 @@ int main(int argc, char **argv)
         }
 
         else {
-            rotate(VelPub, 180); //robot is confused
+            // rotate(VelPub, 180); //robot is confused
+            forward(VelPub, FORWARD_SLOW_V, STEP_SIZE);
             turning_count = 0;
+            ROS_INFO("State 6, just going forward slowly");
             bad_tilt_counter = 0;
         }
 
