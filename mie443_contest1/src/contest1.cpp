@@ -44,10 +44,11 @@
 #define A_THRESHOLD 0.617                       // Considered obstacle directly in front
 #define B_THRESHOLD 0.65                        // Considered wall in the window for passage
 #define C_THRESHOLD 0.7788                      // Side (30 degree) distances to check for free space
+#define ACF_THRESHOLD 1      //!!!!!!!          // Distance directly ahead to start slowing down by
 #define ODOM_ARRAY_LENGTH 50                    // Max number of checkpoints per trial
 #define FORWARD_FAST_V 0.6   //!!!!!            // Velocity when far from walls
-#define FORWARD_SLOW_V 0.4   //!!!!!            // Velocity near walls
-#define STEP_SIZE 0.2                           // Size of Forward steps (m)
+#define FORWARD_SLOW_V 0.3   //!!!!!            // Velocity near walls
+#define STEP_SIZE 0.15                          // Size of Forward steps (m)
 #define BACKWARD_V -0.2                         // Magnitude and direction in x axis
 #define BACKWARD_T 0.88                         // Move backwards a distance == to the radius of the turtlebot
 #define LOOP_RATE 10                            // Rate for while loops that dictate callback and publish frequency (Hz)
@@ -56,8 +57,8 @@
 #define STOPS_SPACING 2.5     //!!!!!           // Distance between checkpoints, meters
 #define TURNING_LIM 500                         // Amounts of total degrees turned before turning robot around
 #define OCCUP_WEIGHT 10                         // Weights for each factor
-#define ODOM_WEIGHT 10
-#define SCAN_WEIGHT 0
+#define ODOM_WEIGHT 1
+#define SCAN_WEIGHT 10
 #define ADJUST_ANGLE 15                         // How much to adjust robot by when wall detected on sides, degrees
 #define CONSECUTIVE_TILTS 8                     // Number of consecutive tilts to occur before thinking of it as a mistake
 // #define CHECKPOINT_RADIUS 0.2                // How close are we to a previous checkpoint, may remove
@@ -180,9 +181,9 @@ float distance(std::vector<float> prev_odom, std::vector<float> new_odom){     /
 
 int forward(ros::Publisher VelPub, float linear_vel, float distance)
 {
-    if (linear_vel == FORWARD_FAST_V) ROS_INFO("forward fast!");
-    else if (linear_vel == FORWARD_SLOW_V) ROS_INFO("forward slow");
-    else ROS_INFO("Forward but unsure why");
+    // if (linear_vel == float(FORWARD_FAST_V)) ROS_INFO("forward fast!");
+    // else if (linear_vel == float(FORWARD_SLOW_V)) ROS_INFO("forward slow");
+    // else ROS_INFO("Forward but unsure why, linear_vel is: %f", linear_vel);
     ros::Rate loop_rate(LOOP_RATE);
     std::chrono::time_point<std::chrono::system_clock> start;       // Initialize timer
 
@@ -206,7 +207,7 @@ int forward(ros::Publisher VelPub, float linear_vel, float distance)
 
 
 void reverse(ros::Publisher VelPub) {                               // Called if any bumper pressed
-    ROS_INFO("reverse");
+    ROS_INFO("Object hit, reversing");
     ros::Rate loop_rate(LOOP_RATE);
     std::chrono::time_point<std::chrono::system_clock> start;       // Initialize timer
 
@@ -251,8 +252,7 @@ void reverse(ros::Publisher VelPub) {                               // Called if
 
 
 void rotate(ros::Publisher VelPub, int angle_rot){                  // Called with input as an angle in degree
-    ROS_INFO("rotate");
-    ROS_INFO("angle: %i",angle_rot);
+    ROS_INFO("rotating by: %i",angle_rot);
 
    int dir = sign(angle_rot);
 //    ROS_INFO("direction: %i", dir);
@@ -285,23 +285,28 @@ uint8_t determineScanType() { // Detect environment classification based on scan
     bool BP = 0;
     bool CP = 0;
 
+    bool AC_far = 0;
+
     if (CMinus > C_THRESHOLD) CM = 1;
     if (BMinus > B_THRESHOLD) BM = 1;
     if (ACentre > A_THRESHOLD) AC = 1;
     if (BPlus > A_THRESHOLD) BP = 1;
     if (CPlus > C_THRESHOLD) CP = 1;
 
+    if (ACentre > ACF_THRESHOLD) AC_far = 1;
+
     // ROS_INFO("5 points left to right: %i, %i, %i, %i, %i", CP, BP, AC, BM, CM);
 
 
-    if (CM && BM && AC && BP) {
+    if (CM && BM && AC_far && BP) {
         state = 1;                      // Forward fast
         IsNearWall = false;
     }
 
     else if (BM && AC && BP) {
         state = 2;                      // Forward slow
-        if (!CM && !CP) ROS_INFO("C minus and plus are not clear");
+        if (!AC_far) ROS_INFO("far distance is blocked, going slower");
+        else if (!CM && !CP) ROS_INFO("C minus and plus are not clear");
         else if (!CM) ROS_INFO("Just C minus blocked");
         else if (!CP) ROS_INFO("Just C plus blocked");
     }
@@ -575,22 +580,28 @@ int main(int argc, char **argv)
 
         if (scan_mode < 3) {
             if (IsNearWall) {
+                ROS_INFO("Forward slow");
                 forward(VelPub, FORWARD_SLOW_V, STEP_SIZE);
-                ROS_INFO("trying to go forward slow");
             }
+
             else {
+                ROS_INFO("Forward Fast");
                 forward(VelPub, FORWARD_FAST_V, STEP_SIZE);
-                ROS_INFO("trying to go forward fast");
 
             }
-            
             // IsNearWall? forward(VelPub, FORWARD_SLOW_V, STEP_SIZE): forward(VelPub, FORWARD_FAST_V, STEP_SIZE);
+            
+
             bad_tilt_counter = 0;
+            just_rotated = false;
+            is_in_corner = false;
             loop_rate.sleep();
         }
 
         else if ((scan_mode == 3) || (scan_mode == 4)){ //Tilt
             ROS_INFO("Minor tilt");
+            just_rotated = false;
+            is_in_corner = false;
             if (bad_tilt_counter >= CONSECUTIVE_TILTS) {
                 reverse(VelPub);
                 rotate(VelPub, 180);
@@ -598,7 +609,8 @@ int main(int argc, char **argv)
                 turning_count = 0;
                 continue;
             }
-            rotation = TurningBias*ADJUST_ANGLE;
+
+            rotation = TurningBias * ADJUST_ANGLE;
             rotate(VelPub, rotation);                   // Fix allignment by ~ 15 degrees depending on direction of bias
             turning_count += rotation;                  // Keep track of turning
             bad_tilt_counter += 1;                      // Track how many times we've done a consecutive tilt
