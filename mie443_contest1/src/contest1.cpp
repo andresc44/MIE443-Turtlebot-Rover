@@ -598,7 +598,9 @@ int main(int argc, char **argv)
         // continue;
 // 
         seconds_long = seconds_elapsed;
-        percent_run = seconds_long / 480 + 0.1; //How much of the trial time has passed, but we want non-zero in all cases
+        ROS_INFO("Seconds elapsed: %li", seconds_long);
+        percent_run = ((float)seconds_long / 480.0) + 0.01; //How much of the trial time has passed, but we want non-zero in all cases
+        ROS_INFO("percent_run: %f", percent_run);
         ROS_INFO("\nTime: %ld, Pos: (%f, %f),  Ori: %f deg, turning_cnt: %ld", seconds_long, CurrOdom[0], CurrOdom[1], Yaw, turning_count); //print current state of everything, !!!!!!!CHANGED 2 LINES
         dist_travelled = distance(last_odom, CurrOdom); // Distance is function to determine distance between 2 coordinates
         //TO-DO!!!!!!!!!!
@@ -718,7 +720,7 @@ int main(int argc, char **argv)
 
 
 
-            decision = sign(scan_cmd*SCAN_WEIGHT + odom_cmd*ODOM_WEIGHT*percent_run + occup_cmd*OCCUP_WEIGHT); // Weighted decision of costs
+            decision = sign((float)scan_cmd*(float)SCAN_WEIGHT + (float)odom_cmd*(float)ODOM_WEIGHT*percent_run + (float)occup_cmd*(float)OCCUP_WEIGHT); // Weighted decision of costs
             ROS_INFO("Scan: %i, Odom: %i,  Occupancy: %i, Decision: %i", scan_cmd, odom_cmd, occup_cmd, decision);
             //TO-DO!!!!!!!!!!
             //rather than weight, potentially do steps to see if that area's been explored
