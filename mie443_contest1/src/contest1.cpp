@@ -174,7 +174,6 @@ void occupancyCallback(const nav_msgs::OccupancyGrid::ConstPtr& msg)
     MapWidth = msg->info.width;
     MapHeight = msg->info.height;
 
-    ROS_INFO("Resolution: %f, width: %li, height: %li", MapResolution, MapWidth, MapHeight);
 
     float origin_x = msg->info.origin.position.x;
     float origin_y = msg->info.origin.position.y;
@@ -412,7 +411,6 @@ int awayFromCentroid() {                           // Which direction will guide
 
 int mapValue(int width, int height) {
     int position = MapWidth * height + width;
-    ROS_INFO("Map value: %i", Map.data[position]);
     return Map.data[position];
 }
 
