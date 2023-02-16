@@ -343,7 +343,7 @@ uint8_t determineScanType() { // Detect environment classification based on scan
 }
 
 
-int nearestCheckpoint() {                           // Which direction will guide turtlebot away from centroid of checkpoints
+int awayFromCentroid() {                           // Which direction will guide turtlebot away from centroid of checkpoints
     float x_sum = 0;
     float y_sum = 0;
     float x_i = 0;
@@ -367,7 +367,7 @@ int nearestCheckpoint() {                           // Which direction will guid
 
     float difference[2] = {(CurrOdom[0] - x_centroid), (CurrOdom[1] - y_centroid)};
     
-    float yaw_rad_left = DEG2RAD(Yaw + 90);
+    float yaw_rad_left = DEG2RAD(Yaw + 180);
     float unit_vector_left[2] = {cosf(yaw_rad_left), sinf(yaw_rad_left)};
     int is_left_away_from_centroid = dotAndSign(unit_vector_left, difference);
     return is_left_away_from_centroid;
@@ -695,7 +695,7 @@ int main(int argc, char **argv)
             }
 
             scan_cmd = TurningBias;                     // Based on clearest path, L or R, function
-            odom_cmd = nearestCheckpoint();             // Based on nearby odom checkpoints, function, checks OdomArray
+            odom_cmd = awayFromCentroid();             // Based on nearby odom checkpoints, function, checks OdomArray
             occup_cmd = newFrontier();                  // Based on nearby occupancy grid, function
             // odom_cmd = 0;
             // occup_cmd = 0;
