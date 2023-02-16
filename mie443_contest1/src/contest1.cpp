@@ -516,6 +516,7 @@ int main(int argc, char **argv)
     uint64_t seconds_elapsed = 0;                               // Variable for time that has passed
     uint8_t scan_mode = 0;                                      // List of X states
     uint8_t bad_tilt_counter = 0;                               // Number of consecutive tilts done
+    uint8_t bad_turn_counter = 0;
     int checkpoint_counter = 1;             
     float rotation = 0;                             
     float dist_travelled = 0;                                   // How much moved since last checkpoint
@@ -644,6 +645,7 @@ int main(int argc, char **argv)
             
 
             bad_tilt_counter = 0;
+            bad_turn_counter = 0;
             just_rotated = false;
             is_in_corner = false;
             loop_rate.sleep();
@@ -653,11 +655,13 @@ int main(int argc, char **argv)
             ROS_INFO("Minor tilt");
             just_rotated = false;
             is_in_corner = false;
+            bad_turn_counter = 0;
             if (bad_tilt_counter >= CONSECUTIVE_TILTS) {
                 reverse(VelPub);
                 rotate(VelPub, 180);
                 ROS_INFO("I'm stuck in a tilt loop, turning around now");
                 turning_count = 0;
+                bad_tilt_counter = 0;
                 continue;
             }
 
@@ -668,7 +672,16 @@ int main(int argc, char **argv)
         }
 
         else if (scan_mode == 5) {                      // Front wall
+            if (bad_turn_counter >= CONSECUTIVE_TILTS) {
+                reverse(VelPub);
+                rotate(VelPub, 180);
+                ROS_INFO("I'm stuck in a turn loop, turning around now");
+                turning_count = 0;
+                bad_turn_counter = 0;
+                continue;
+            }
             bad_tilt_counter = 0;
+            bad_turn_counter += 1;
             if (just_rotated) {                         // Bad turning decision, we're at a corner and turned into other wall
                 ROS_INFO("I think I'm in a corner and going the other way");
                 rotate(VelPub, 180);                    // Turn around, think about a dead end corridor situation
@@ -724,6 +737,7 @@ int main(int argc, char **argv)
             turning_count = 0;
             ROS_INFO("State 6, just going forward slowly");
             bad_tilt_counter = 0;
+            bad_turn_counter = 0;
         }
 
         seconds_elapsed = std::chrono::duration_cast<std::chrono::seconds>(std::chrono::system_clock::now()-start).count(); //count how much time has passed
