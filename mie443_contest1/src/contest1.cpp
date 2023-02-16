@@ -26,6 +26,8 @@
 #include <nav_msgs/Odometry.h>
 #include <tf/transform_datatypes.h>
 #include "std_msgs/String.h"
+#include <nav_msgs/OccupancyGrid.h>
+#include <tf/transform_listener.h>
 
 
 #include <stdio.h>
@@ -56,11 +58,15 @@
 #define MAX_OBST_DIST 0.5                       // If less than this, we should turn, meters
 #define STOPS_SPACING 2.5     //!!!!!           // Distance between checkpoints, meters
 #define TURNING_LIM 500                         // Amounts of total degrees turned before turning robot around
-#define OCCUP_WEIGHT 10                         // Weights for each factor
+#define OCCUP_WEIGHT 1                         // Weights for each factor
 #define ODOM_WEIGHT 20
 #define SCAN_WEIGHT 10
 #define ADJUST_ANGLE 15                         // How much to adjust robot by when wall detected on sides, degrees
 #define CONSECUTIVE_TILTS 8                     // Number of consecutive tilts to occur before thinking of it as a mistake
+#define SIDE_DISTANCE 0.5           // Distance to check to our lefts for unexplored areas (m)
+#define BLOCK_SIZE 2                // Area checked for occupancy is of size (BLOCK_SIZE * 2 + 1) ^2
+#define TOTAL_BLOCKS (BLOCK_SIZE * 2 + 1) * (BLOCK_SIZE * 2 + 1)
+#define UNEXPLORED_THRESH 0.4 * TOTAL_BLOCKS      // Max Threshold for whether a given area has been explored
 // #define CHECKPOINT_RADIUS 0.2                // How close are we to a previous checkpoint, may remove
 const int CENTRE_INDEX = SCAN_LENGTH / 2 -1;    // Get index for the middle index for the A value
 
@@ -81,10 +87,9 @@ std::vector<float> CurrOdom{0, 0};              // Where the turtlebot is in tha
 // std::vector<float> XboxRanges = {0};         // Storage for scan topic messages
 std::vector<std::vector<float>> OdomArray{ODOM_ARRAY_LENGTH, std::vector<float>(2)}; // Full Array saving all checkpoint locations
 
-bool IsNearWall = true;                         // Can we go fast or not
-bool AnyBumperPressed = false;                  // Reset variable to false
-int TurningBias = 0;                            // Finds clearest path or correction direction
 
+long int MapWidth = 1; //Number of cells left to right
+long int MapHeight = 1; // Number of cells bottom to top
 uint8_t Bumper[3] = {kobuki_msgs::BumperEvent::RELEASED, kobuki_msgs::BumperEvent::RELEASED, kobuki_msgs::BumperEvent::RELEASED};
 uint8_t LeftState = Bumper[kobuki_msgs::BumperEvent::LEFT];     // kobuki_msgs::BumperEvent::PRESSED if bumper is pressed, kobuki_msgs::BumperEvent::RELEASED otherwise
 int32_t NLasers=0, DesiredNLasers=0, DesiredAngle=5;            // Laser parameters
@@ -97,12 +102,24 @@ float BMinus = 0;
 float ACentre = 0;
 float BPlus = 0;
 float CPlus = 0;
+float MapResolution = 0;
+float MapX = 0;
+float MapY = 0;
+bool IsNearWall = true;                         // Can we go fast or not
+bool AnyBumperPressed = false;                  // Reset variable to false
+int TurningBias = 0;                            // Finds clearest path or correction direction
+int GridX = 0;
+int GridY = 0;
+
+
 
 ros::Publisher VelPub;
 ros::Publisher OutputPub;
 geometry_msgs::Twist Vel;                                       // Create message for velocities as Twist type
 std_msgs::String Message;
 std::stringstream StringContent;
+nav_msgs::OccupancyGrid Map;
+
 
 // !!!!!!!!!!!!DECLARE FUNCTIONS!!!!!!!!!!!!!!!!!!!!!!!
 void reverse(ros::Publisher VelPub);
@@ -149,6 +166,24 @@ void odomCallback (const nav_msgs::Odometry::ConstPtr& msg)
 }
 
 
+void occupancyCallback(const nav_msgs::OccupancyGrid::ConstPtr& msg)
+{
+    // Map starting point on bottom left of map, 1D array 8 bit
+    Map.data = msg->data;
+    MapResolution =msg->info.resolution;
+    MapWidth = msg->info.width;
+    MapHeight = msg->info.height;
+
+    ROS_INFO("Resolution: %f, width: %li, height: %li", MapResolution, MapWidth, MapHeight);
+
+    float origin_x = msg->info.origin.position.x;
+    float origin_y = msg->info.origin.position.y;
+ 
+    GridX = round((MapX - origin_x) / MapResolution);
+    GridY = round((MapY - origin_y) / MapResolution);
+}
+
+
 //!!!!!!!!!USER-DEFINED FUNCTIONS!!!!!!!!!!!!!!!!!!!!!!!!
 bool arrayEqual(uint8_t array_1[], uint8_t array_2[]) {
     for (int i =0; i< 2; i++){
@@ -159,6 +194,7 @@ bool arrayEqual(uint8_t array_1[], uint8_t array_2[]) {
 
     return true;
 }
+
 
 int sign(float number) {
     return (number>0)? 1: -1;                               // Positive -> 1, otherwise -1
@@ -373,139 +409,94 @@ int awayFromCentroid() {                           // Which direction will guide
     return is_left_away_from_centroid;
 }
 
-// !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-// 2 Functions below are untested and contain bugs
 
-// #define SIDE_DISTANCE 0.4           // Distance to check to our lefts for unexplored areas (m)
-// #define BLOCK_SIZE 2                // Area checked for occupancy is of size (BLOCK_SIZE * 2 + 1) ^2
-// #define TOTAL_BLOCKS (BLOCK_SIZE * 2 + 1) * (BLOCK_SIZE * 2 + 1)
-// #define UNEXPLORED_THRESH 0.7       // Max Threshold for whether a given area has been explored
-// #include <nav_msgs/OccupancyGrid.h>
+int mapValue(int width, int height) {
+    int position = MapWidth * height + width;
+    ROS_INFO("Map value: %i", Map.data[position]);
+    return Map.data[position];
+}
 
-// uint64_t GridX = 0;
-// uint64_t GridY = 0;
-// float MapResolution = 0;
-// long int MapWidth = 1;
-// long int MapHeight = 1;
-
-// //global pointer set to null
-// std::vector<std::vector<float>> *MapPointer = new std::vector<std::vector<float>>;
-
-
-// void occupancyCallback(const nav_msgs::OccupancyGrid::ConstPtr& msg)
-// {
-//     // ROS_INFO("ranges: %f", msg->ranges[0]);
-//     // int occup_array[] = msg->data;
-//     tf::TransformListener listener;
-//     tf::StampedTransform transform;
-
-//     MapResolution =msg->info.resolution;
-//     MapWidth = msg->info.width;
-//     MapHeight = msg->info.height;
-//     map_array = msg->data;
-
-//     std::vector<std::vector<float>> map_array{MapWidth, std::vector<float>(MapHeight)}; //!!!This has to be fixed
-//     map_array = msg->data;
-
-//     //assign global pointer to point at vector above
-//     MapPointer = &map_array; // Not exactly this
-
-//     float origin_x = msg->info.origin.position.x;
-//     float origin_y = msg->info.origin.position.y;
-//     // float origin_yaw = RAD2DEG(tf::getYaw(msg->info.origin.quaternion));
-
-//     try listener.lookupTransform("/map", "/base_link", ros::Time(0), transform);
-
-//     catch (tf::TransformException &ex) {
-//         ROS_ERROR("%s",ex.what());
-//         ros::Duration(1.0).sleep();
-//         continue;
-//     }
-
-//     float map_x = transform.getOrigin().x();
-//     float map_y = transform.getOrigin().y();
-
-//     // must get map_x and map_y from transform
-//     GridX = (unsigned int)((map_x - origin_x) / MapResolution)
-//     GridY = (unsigned int)((map_y - origin_y) / MapResolution)
-    
-// }
-
-
-// int newFrontier() {
-//     long int surrounding_x = 0;
-//     long int surrounding_y = 0;
-//     float left_counter = 0;
-//     float right_counter = 0;
-//     bool left_in_bounds = true;
-//     bool right_in_bounds = true;
-//     int occup_dec = 0;
-
-//     long int matrix_x = GridX //Need to change
-//     long int matrix_y = Gridy //Same
-
-//     float x_delta = SIDE_DISTANCE * sinf(Yaw);
-//     float y_delta = SIDE_DISTANCE * cosf(Yaw);
-//     int x_disc = (int)(x_delta/MapResolution);
-//     int y_disc = (int)(y_delta/MapResolution);
-
-//     long int left_index_x = matrix_x + x_disc;
-//     long int left_index_y = matrix_y - y_disc;
-//     long int right_index_x = matrix_x - x_disc;
-//     long int right_index_y = matrix_y + y_disc;
-
-//     // bool surrounding_in_bounds = true;
-
-//     if ((left_index_x < 0) || (left_index_y < 0) || (left_index_x > MapWidth) || (left_index_y > MapHeight)) {
-//         //Left is out of map bounds
-//         left_in_bounds = false;        
-//     }
-
-//     else long int left_centre[2] = {left_index_x, left_index_y};
-
-//     if ((right_index_x < 0) || (right_index_y < 0) || (right_index_x > MapWidth) || (right_index_y > MapHeight)) {
-//         //Right is out of map bounds
-//         right_in_bounds = false;        
-//     }
-
-//     else long int right_centre[2] = {right_index_x, right_index_y};
-
-//     for (int i = -BLOCK_SIZE; i <= BLOCK_SIZE; i++) {
-//         for (int j = -BLOCK_SIZE; j <= BLOCK_SIZE; j++) {
-//             // surrounding_in_bounds = true;
-//             if (left_in_bounds) {          
-//                 surrounding_x = left_centre[0] + i;
-//                 surrounding_y = left_centre[1] + j;
-
-//                 if ((surrounding_x >= 0) && (surrounding_y >= 0) && (surrounding_x <= MapWidth) && (surrounding_y <= MapHeight)) {
-//                     // If the dot in the left surounding area is a valid point in map
-//                     left_counter += map_array[surrounding_x, surrounding_y]
-//                 }
-//             }
-
-//             if (right_in_bounds) {          
-//                 surrounding_x = right_centre[0] + i;
-//                 surrounding_y = right_centre[1] + j;
-
-//                 if ((surrounding_x >= 0) && (surrounding_y >= 0) && (surrounding_x <= MapWidth) && (surrounding_y <= MapHeight)) {
-//                     // If the dot in the right surounding area is a valid point in map
-//                     right_counter += map_array[surrounding_x, surrounding_y]
-//                 }
-//             }
-//         }
-//     }
-
-//     float left_avg = left_counter / TOTAL_BLOCKS;
-//     float right_avg = right_counter / TOTAL_BLOCKS;
-
-//     if (left_avg < UNEXPLORED_THRESH) occup_dec += 1;
-//     if (right_avg < UNEXPLORED_THRESH) occup_dec -= 1;
-
-//     return occup_dec;
-// }
 
 int newFrontier() {
-    return 0;
+    long int surrounding_x = 0;
+    long int surrounding_y = 0;
+    float left_counter = 0;
+    float right_counter = 0;
+    bool left_in_bounds = true;
+    bool right_in_bounds = true;
+    int occup_dec = 0;
+    //GridX and GridY are zero based
+    
+    float x_delta = SIDE_DISTANCE * sinf(Yaw);
+    float y_delta = SIDE_DISTANCE * cosf(Yaw);
+    int x_disc = round(x_delta/MapResolution);
+    int y_disc = round(y_delta/MapResolution);
+
+
+    long int left_index_x = GridX - x_disc;
+    long int left_index_y = GridY - y_disc;
+    long int right_index_x = GridX + x_disc;
+    long int right_index_y = GridY + y_disc;
+
+    long int left_centre[2] = {0, 0};
+    long int right_centre[2] = {0, 0};
+
+
+
+
+    if ((left_index_x < 0) || (left_index_y < 0) || (left_index_x >= MapWidth) || (left_index_y >= MapHeight)) {
+        //Left is out of map bounds
+        left_in_bounds = false;        
+    }
+
+    else {
+        left_centre[0] = left_index_x;
+        left_centre[1] = left_index_y;
+    }
+
+    if ((right_index_x < 0) || (right_index_y < 0) || (right_index_x >= MapWidth) || (right_index_y >= MapHeight)) {
+        //Right is out of map bounds
+        right_in_bounds = false;        
+    }
+
+    else {
+        right_centre[0] = right_index_x;
+        right_centre[1] = right_index_y;
+    }
+
+
+    for (int i = -BLOCK_SIZE; i <= BLOCK_SIZE; i++) {
+        for (int j = -BLOCK_SIZE; j <= BLOCK_SIZE; j++) {
+            // surrounding_in_bounds = true;
+            if (left_in_bounds) {          
+                surrounding_x = left_centre[0] + i;
+                surrounding_y = left_centre[1] + j;
+
+                if ((surrounding_x >= 0) && (surrounding_y >= 0) && (surrounding_x < MapWidth) && (surrounding_y < MapHeight)) {
+                    // If the dot in the left surounding area is a valid point in map
+                    // left_counter = left_counter + occup_map_array[surrounding_x, surrounding_y] mapValue
+                    if (mapValue(surrounding_x, surrounding_y) < 0) {
+                        left_counter = left_counter + 1;
+                    }
+                }
+            }
+
+            if (right_in_bounds) {          
+                surrounding_x = right_centre[0] + i;
+                surrounding_y = right_centre[1] + j;
+
+                if ((surrounding_x >= 0) && (surrounding_y >= 0) && (surrounding_x < MapWidth) && (surrounding_y < MapHeight)) {
+                    // If the dot in the right surounding area is a valid point in map
+                    if (mapValue(surrounding_x, surrounding_y) < 0) {
+                        right_counter = right_counter + 1;
+                    }
+                }
+            }
+        }
+    }
+    if (left_counter > UNEXPLORED_THRESH) occup_dec += 1;
+    if (right_counter > UNEXPLORED_THRESH) occup_dec -= 1;
+    return occup_dec;
 }
 
 
@@ -519,7 +510,7 @@ int main(int argc, char **argv)
     ros::Subscriber bumper_sub = nh.subscribe("mobile_base/events/bumper", 10, &bumperCallback); //subscribe to bump topic with callback
     ros::Subscriber laser_sub = nh.subscribe("scan", 10, &laserCallback);       // Subscribe  to /scan topic
     ros::Subscriber odom_sub = nh.subscribe("odom", 1, &odomCallback);
-    // ros::Subscriber map_sub = nh.subscribe("map", 1, &occupancyCallback);
+    ros::Subscriber map_sub = nh.subscribe("map", 1, &occupancyCallback);
     VelPub = nh.advertise<geometry_msgs::Twist>("cmd_vel_mux/input/teleop", 1); // Publish cmd_velocity as Twist message
     OutputPub = nh.advertise<std_msgs::String>("feedback", 1000);
     uint64_t seconds_elapsed = 0;                               // Variable for time that has passed
@@ -548,8 +539,24 @@ int main(int argc, char **argv)
     geometry_msgs::Twist vel;                                   // Create message for velocities as Twist type
     std::chrono::time_point<std::chrono::system_clock> start;   // Initialize timer
     start = std::chrono::system_clock::now();                   // Start the timer
+    tf::TransformListener listener;
+
 
     while(ros::ok() && seconds_elapsed <= 480) {        // While ros master running and < 8 minutes
+        tf::StampedTransform transform;
+        try {
+            listener.lookupTransform("/map", "/base_link", ros::Time(0), transform);
+        }
+        catch (tf::TransformException &ex) {
+            ROS_ERROR("%s",ex.what());
+            ros::Duration(1.0).sleep();
+        }
+
+        MapX = transform.getOrigin().x();
+        MapY = transform.getOrigin().y();
+        // ROS_INFO("X: %f, Y %f", MapX, MapY);
+
+        
         ros::spinOnce();                                // Listen to all subscriptions once
         loop_iterations += 1;
         if (loop_iterations < 5) {
@@ -697,8 +704,6 @@ int main(int argc, char **argv)
             scan_cmd = TurningBias;                     // Based on clearest path, L or R, function
             odom_cmd = awayFromCentroid();             // Based on nearby odom checkpoints, function, checks OdomArray
             occup_cmd = newFrontier();                  // Based on nearby occupancy grid, function
-            // odom_cmd = 0;
-            // occup_cmd = 0;
 
 
 
