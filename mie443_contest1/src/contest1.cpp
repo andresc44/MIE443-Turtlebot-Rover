@@ -510,7 +510,7 @@ int newFrontier() {
 // !!!!!!!!!!!!!MAIN!!!!!!!!!!!!!!!!!!!!!!!!!!
 int main(int argc, char **argv)
 {
-    ros::init(argc, argv, "image_listener");                    // Node name
+    ros::init(argc, argv, "Navigator");                    // Node name
     ros::NodeHandle nh;                                         // Iinitialize node handler
     ros::Rate loop_rate(LOOP_RATE);                             // Code will try to run at LOOP_RATE Hz
 
