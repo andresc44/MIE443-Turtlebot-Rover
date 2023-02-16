@@ -57,7 +57,7 @@
 #define STOPS_SPACING 2.5     //!!!!!           // Distance between checkpoints, meters
 #define TURNING_LIM 500                         // Amounts of total degrees turned before turning robot around
 #define OCCUP_WEIGHT 10                         // Weights for each factor
-#define ODOM_WEIGHT 1
+#define ODOM_WEIGHT 20
 #define SCAN_WEIGHT 10
 #define ADJUST_ANGLE 15                         // How much to adjust robot by when wall detected on sides, degrees
 #define CONSECUTIVE_TILTS 8                     // Number of consecutive tilts to occur before thinking of it as a mistake
@@ -66,6 +66,8 @@ const int CENTRE_INDEX = SCAN_LENGTH / 2 -1;    // Get index for the middle inde
 
 
 //!!!!!!!!!!!GLOBAL VARIABLES!!!!!!!!!!!!!!!!!!!!!!!!!
+
+
 uint8_t LState[3] = {1,0,0};
 uint8_t LMState[3] = {1,1,0};
 uint8_t RState[3] = {0,0,1};
@@ -526,6 +528,7 @@ int main(int argc, char **argv)
     int checkpoint_counter = 1;             
     float rotation = 0;                             
     float dist_travelled = 0;                                   // How much moved since last checkpoint
+    float percent_run = 0;
     long turning_count = 0;                                     // Accumulation of how much travelled
     bool just_rotated = false;                                  // Did we just make a 90 degree turn?
     bool is_in_corner = false;                                  // Did we just make a 90 degree turn?
@@ -555,6 +558,7 @@ int main(int argc, char **argv)
             continue;
 
         }
+
 
         // int remainder = loop_iterations % 6;
         // forward(VelPub, FORWARD_SLOW_V, STEP_SIZE);
@@ -588,6 +592,7 @@ int main(int argc, char **argv)
         // continue;
 // 
         seconds_long = seconds_elapsed;
+        percent_run = seconds_long / 480 + 0.1; //How much of the trial time has passed, but we want non-zero in all cases
         ROS_INFO("\nTime: %ld, Pos: (%f, %f),  Ori: %f deg, turning_cnt: %ld", seconds_long, CurrOdom[0], CurrOdom[1], Yaw, turning_count); //print current state of everything, !!!!!!!CHANGED 2 LINES
         dist_travelled = distance(last_odom, CurrOdom); // Distance is function to determine distance between 2 coordinates
         //TO-DO!!!!!!!!!!
@@ -697,7 +702,7 @@ int main(int argc, char **argv)
 
 
 
-            decision = sign(scan_cmd*SCAN_WEIGHT + odom_cmd*ODOM_WEIGHT + occup_cmd*OCCUP_WEIGHT); // Weighted decision of costs
+            decision = sign(scan_cmd*SCAN_WEIGHT + odom_cmd*ODOM_WEIGHT*percent_run + occup_cmd*OCCUP_WEIGHT); // Weighted decision of costs
             ROS_INFO("Scan: %i, Odom: %i,  Occupancy: %i, Decision: %i", scan_cmd, odom_cmd, occup_cmd, decision);
             //TO-DO!!!!!!!!!!
             //rather than weight, potentially do steps to see if that area's been explored
