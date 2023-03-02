@@ -1,0 +1,32 @@
+<?xml version="1.0"?>
+<opencv_storage>
+	<coordinate1>
+	0.612 <!--x  -->
+	0.878  <!--y  -->
+	-1.55 <!--phi-->
+	</coordinate1>
+
+	<coordinate2>
+	0.722
+	3.58
+	-1.031
+	</coordinate2>
+
+	<coordinate3>
+	2.15
+	3.17
+	0.372
+	</coordinate3>
+
+	<coordinate4>
+	2.0
+	0.943
+	1.623
+	</coordinate4>
+
+	<coordinate5>
+	3.07
+	0.135
+	-1.585
+	</coordinate5>
+</opencv_storage>
