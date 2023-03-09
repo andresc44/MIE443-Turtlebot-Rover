@@ -45,14 +45,54 @@ int main(int argc, char** argv) {
     std::chrono::time_point<std::chrono::system_clock> start;
     start = std::chrono::system_clock::now();
     uint64_t secondsElapsed = 0;
+
+    //tell the action client that we want to spin a thread by default
+    MoveBaseClient ac("move_base", true);
+
     
+    //wait for the action server to come up
+    while(!ac.waitForServer(ros::Duration(5.0))){
+    ROS_INFO("Waiting for the move_base action server to come up");
+    }
+
+    move_base_msgs::MoveBaseGoal goal;
+
     // Execute strategy.
-    while(ros::ok() && secondsElapsed <= 300) {
+    while(ros::ok() && secondsElapsed <= 300 && (accum > 0)) {
         ros::spinOnce();
-        /***YOUR CODE HERE***/
-        // Use: boxes.coords
-        // Use: robotPose.x, robotPose.y, robotPose.phi
-        imagePipeline.getTemplateID(boxes);
+        target = GetNearestNeighbour();
+        //we'll send a goal to the robot to move 1 meter forward
+        goal.target_pose.header.frame_id = "base_link";
+        goal.target_pose.header.stamp = ros::Time::now();
+        goal.target_pose.pose.position.x = // index coordinates file;
+        goal.target_pose.pose.position.y = // index coordinates file;
+        goal.target_pose.pose.position.w = // index coordinates file; //keep an eye out for yaw and w quaternion
+        // test validity
+
+        ROS_INFO("Sending goal");
+        ac.sendGoal(goal);
+
+        ac.waitForResult();
+
+        if(ac.getState() == actionlib::SimpleClientGoalState::SUCCEEDED)
+            ROS_INFO("Hooray, the base moved 1 meter forward");
+            /***YOUR CODE HERE***/
+            // Use: boxes.coords
+            // Use: robotPose.x, robotPose.y, robotPose.phi
+            label = imagePipeline.getTemplateID(boxes);
+            visited[target] = 0;
+            results[target] = label;// OpenCV
+            accum = accumulate(Visited);
+            if (accum == 1) {
+                if (CheckRepeat()) {
+                    FillResults();
+                    break;
+                }
+            }
+
+        else
+            ROS_INFO("The base failed to move forward 1 meter for some reason");
+
         ros::Duration(0.01).sleep();
     }
     return 0;
