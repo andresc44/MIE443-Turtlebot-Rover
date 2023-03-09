@@ -44,9 +44,9 @@ int ImagePipeline::getTemplateID(Boxes& boxes) {    //This is called in main con
         std::cout << "img.rows:" << img.rows << std::endl;
         std::cout << "img.cols:" << img.cols << std::endl;
     } else {     //(if the image is valid)
-        /***YOUR CODE HERE***/                 /// this should compare the boxes images (passed in the argument) to the vide str
-        // Use: boxes.templates
-        cv::imshow("view", img);   ///img is the video stream, we compare this with boxes
+        /***YOUR CODE HERE***/                 /// this should compare the boxes images (passed in the argument) to the video str. It seems boxes.templates (xml) is a vector of 3 files, and we have 4 cases
+        // Use: boxes.templates                 ///i think we need to compare the stream with boxes.templates(1), (2) and (3) and have 'else' be the blank case. Then set template_id =1 for the first 1, or 2 for second... and 4 for the else case
+        cv::imshow("view", img);   ///img is the video stream, we compare this with boxes, and display the stream image
         cv::waitKey(10);
     }  
     return template_id;      ///this function will return the ID index to the contest file
@@ -54,17 +54,18 @@ int ImagePipeline::getTemplateID(Boxes& boxes) {    //This is called in main con
 
 
 /////////OPEN CV LINK - this will go in the getTemplateID since that is the main function that takes in the boxe imagers and returns the ID index
-
+                      // we need to modify this to include video stream ... we should look at the video stream topic to see how it gives info
+                       // while no match, cycle through template images comparing each with the video stream, if no match (and some other criteria) return template_id = 4 (ex for blank)
 
 const char* keys =
         "{ help h |                          | Print help message. }"
         "{ input1 | ../data/box.png          | Path to input image 1. }"
         "{ input2 | ../data/box_in_scene.png | Path to input image 2. }";
-int main( int argc, char* argv[] )
+int main( int argc, char* argv[] ) ///first argument is the image object (the boxes), second argument is the scene image (the sensor)
 {
     CommandLineParser parser( argc, argv, keys );
-    Mat img_object = imread( parser.get<String>("input1"), IMREAD_GRAYSCALE );
-    Mat img_scene = imread( parser.get<String>("input2"), IMREAD_GRAYSCALE );
+    Mat img_object = imread( parser.get<String>("input1"), IMREAD_GRAYSCALE );   ///boxes images
+    Mat img_scene = imread( parser.get<String>("input2"), IMREAD_GRAYSCALE );   //  Sensor images
     if ( img_object.empty() || img_scene.empty() )
     {
         cout << "Could not open or find the image!\n" << endl;
