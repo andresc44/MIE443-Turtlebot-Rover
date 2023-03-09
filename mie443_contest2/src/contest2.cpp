@@ -1,3 +1,19 @@
+// Function variables: variable_name
+// Functions: functionName
+// Definitions: DEFINITION_NAME
+// Global variables: VariableName
+
+// 2 empty lines between functions
+// 1 empty line after if, else if, else, for, and while (unless followed by another '}' )
+// Initialization of variables at top in order of types
+// Comments aligned on function level
+// Comments start with space and capital
+
+//CONVENTION
+//CCW rotation is positive
+//forward is x direction
+//left is y direction
+
 #include <boxes.h>
 #include <navigation.h>
 #include <robot_pose.h>
