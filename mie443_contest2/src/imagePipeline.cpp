@@ -16,16 +16,16 @@ using std::endl;
 
 ImagePipeline::ImagePipeline(ros::NodeHandle& n) {
     image_transport::ImageTransport it(n);
-    sub = it.subscribe(IMAGE_TOPIC, 1, &ImagePipeline::imageCallback, this);
+    sub = it.subscribe(IMAGE_TOPIC, 1, &ImagePipeline::imageCallback, this); /// this file we are in (image pipeline node) subscribes to the kinect sensor which is the IMAGETOPIC (gives us the image data messages)
     isValid = false;
 }
 
-void ImagePipeline::imageCallback(const sensor_msgs::ImageConstPtr& msg) {
-    try {
-        if(isValid) {
-            img.release();
+void ImagePipeline::imageCallback(const sensor_msgs::ImageConstPtr& msg) {   // everytime spinONCE is called in the main contest folder loop, this is run (this file is connected to the other file through #include, which includes the header file which contains the pipeline node, get template and callback)
+    try {                                                                     // I think this callback converts the ROS images from the video stream to CV image using CV bridge and stores it in img
+        if(isValid) {                                                           
+            img.release();              
         }
-        img = (cv_bridge::toCvShare(msg, IMAGE_TYPE)->image).clone();
+        img = (cv_bridge::toCvShare(msg, IMAGE_TYPE)->image).clone();     // the video stream image is stored in the img variable
         isValid = true;
     } catch (cv_bridge::Exception& e) {
         std::cout << "ERROR: Could not convert from " << msg->encoding.c_str()
@@ -34,26 +34,26 @@ void ImagePipeline::imageCallback(const sensor_msgs::ImageConstPtr& msg) {
     }    
 }
 
-int ImagePipeline::getTemplateID(Boxes& boxes) {
+int ImagePipeline::getTemplateID(Boxes& boxes) {    //This is called in main contest file and is passed boxes templates (the given images) in the main contest file, and recieves the video stream image from the image callback
     int template_id = -1;
-    if(!isValid) {
+    if(!isValid) {          ///isValid is set from the image callback to check if there is a valid video stream image, this is executed if not valid, next is if empty
         std::cout << "ERROR: INVALID IMAGE!" << std::endl;
     } else if(img.empty() || img.rows <= 0 || img.cols <= 0) {
         std::cout << "ERROR: VALID IMAGE, BUT STILL A PROBLEM EXISTS!" << std::endl;
         std::cout << "img.empty():" << img.empty() << std::endl;
         std::cout << "img.rows:" << img.rows << std::endl;
         std::cout << "img.cols:" << img.cols << std::endl;
-    } else {
-        /***YOUR CODE HERE***/
+    } else {     //(if the image is valid)
+        /***YOUR CODE HERE***/                 /// this should compare the boxes images (passed in the argument) to the vide str
         // Use: boxes.templates
-        cv::imshow("view", img);
+        cv::imshow("view", img);   ///img is the video stream, we compare this with boxes
         cv::waitKey(10);
     }  
-    return template_id;
+    return template_id;      ///this function will return the ID index to the contest file
 }
 
 
-/////////OPEN CV LINK
+/////////OPEN CV LINK - this will go in the getTemplateID since that is the main function that takes in the boxe imagers and returns the ID index
 
 
 const char* keys =
