@@ -4,7 +4,7 @@
 
 bool Boxes::load_coords() {
     std::string filePath = ros::package::getPath("mie443_contest2") +
-                            std::string("/boxes_database/coords.xml");
+                            std::string("/boxes_database/gazebo_coords.xml"); //Added "gazebo_"
     cv::FileStorage fs(filePath, cv::FileStorage::READ);
     if(fs.isOpened()) {
         cv::FileNode node;
