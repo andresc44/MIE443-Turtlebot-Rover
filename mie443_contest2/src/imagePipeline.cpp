@@ -87,7 +87,7 @@ int main( int argc, char* argv[] )
           scene_corners[0] + Point2f((float)img_object.cols, 0), Scalar( 0, 255, 0), 4 );
     //-- Show detected matches
     imshow("Good Matches & Object detection", img_matches );
-    waitKey();
+    waitKey(); // waits until a key is pressed
     return 0;
 }
 #else
@@ -132,7 +132,8 @@ int ImagePipeline::getTemplateID(Boxes& boxes) {
         /***YOUR CODE HERE***/
         // Use: boxes.templates
         cv::imshow("view", img);
-        cv::waitKey(10);
+        cv::waitKey(10); // waits for 10 milliseconds
     }  
     return template_id;
 }
+ 
