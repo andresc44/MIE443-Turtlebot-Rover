@@ -44,11 +44,11 @@ int main(int argc, char** argv) {
     
     // Execute strategy.
     while(ros::ok() && secondsElapsed <= 300) {
-        ros::spinOnce();
+        ros::spinOnce();      ///updates subscirbers including the image callback
         /***YOUR CODE HERE***/
         // Use: boxes.coords
         // Use: robotPose.x, robotPose.y, robotPose.phi
-        imagePipeline.getTemplateID(boxes);
+        imagePipeline.getTemplateID(boxes); //will pass the images through the get ID function and return the image index.
         ros::Duration(0.01).sleep();
     }
     return 0;
