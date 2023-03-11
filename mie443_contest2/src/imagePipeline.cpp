@@ -1,5 +1,6 @@
 #include <imagePipeline.h>
 
+// sensor_msgs::image_encodings is a message type, BGR8 is an 8 bit encoding field
 #define IMAGE_TYPE sensor_msgs::image_encodings::BGR8
 #define IMAGE_TOPIC "camera/rgb/image_raw" // kinect:"camera/rgb/image_raw" webcam:"camera/image"
 
@@ -16,6 +17,8 @@ using namespace cv::xfeatures2d;
 using std::cout;
 using std::endl;
 
+// keys = character string --> defining two image paths
+// a pointer is a variable that stores the memory address of another variable
 const char* keys =
         "{ help h |                          | Print help message. }"
         "{ input1 | ../data/box.png          | Path to input image 1. }"
@@ -32,21 +35,28 @@ int main( int argc, char* argv[] )
         parser.printMessage();
         return -1;
     }
-    //-- Step 1: Detect the keypoints using SURF Detector, compute the descriptors
-    int minHessian = 400;
-    Ptr<SURF> detector = SURF::create( minHessian );
-    std::vector<KeyPoint> keypoints_object, keypoints_scene;
-    Mat descriptors_object, descriptors_scene;
-    detector->detectAndCompute( img_object, noArray(), keypoints_object, descriptors_object );
-    detector->detectAndCompute( img_scene, noArray(), keypoints_scene, descriptors_scene );
+        
+    //-- Step 1: Detect the keypoints using SURF Detector, compute the descriptors for img_object and img_scene
+    int minHessian = 400; //determining the threshold/sensitivity of the detector to blob-like structure. increasing will result in fewer keypoints detected.
+    Ptr<SURF> detector = SURF::create( minHessian ); //creates an instance of the SURF feature detector
+    std::vector<KeyPoint> keypoints_object, keypoints_scene; //creating two empty vectors to hold the keypoints detected in img_object and img_scene
+    Mat descriptors_object, descriptors_scene; //creating two empty MAT matrices to hold the descriptors computed for the keypoints
+    detector->detectAndCompute( img_object, noArray(), keypoints_object, descriptors_object ); //detects keypoints and computes descriptors for img_object. 
+    detector->detectAndCompute( img_scene, noArray(), keypoints_scene, descriptors_scene ); //detects keypoints and computes descriptors for img_scene. 
+    //noArray() is used to specify that no mask is used for the detections
+        
     //-- Step 2: Matching descriptor vectors with a FLANN based matcher
+    // FLANN: fast library for approximate nearest neighbors --> used to match keypoints between two images using their feature descriptors
     // Since SURF is a floating-point descriptor NORM_L2 is used
-    Ptr<DescriptorMatcher> matcher = DescriptorMatcher::create(DescriptorMatcher::FLANNBASED);
-    std::vector< std::vector<DMatch> > knn_matches;
-    matcher->knnMatch( descriptors_object, descriptors_scene, knn_matches, 2 );
+    Ptr<DescriptorMatcher> matcher = DescriptorMatcher::create(DescriptorMatcher::FLANNBASED); // creates an instance of of the FLANN-based descriptor matcher
+    std::vector< std::vector<DMatch> > knn_matches; // creates an empty vector of vectors of DMatch objects to store the matches found by the descriptor matcher.
+    // each element of the outer vector correspond to a query descriptor, and the inner vector contains the top k matches
+    // kNN --> 'k'-nearest-neighbor --> search method for finding the k closest matches to a given query point
+    matcher->knnMatch( descriptors_object, descriptors_scene, knn_matches, 2 ); // performs the kNN search on the descriptors of img_object and img_scene.
     //-- Filter matches using the Lowe's ratio test
-    const float ratio_thresh = 0.75f;
-    std::vector<DMatch> good_matches;
+    const float ratio_thresh = 0.75f; // set the ratio threshold used for filtering the matches.
+    // The Lowe's ratio test is a common method used to remove false matches by copmaring the distance between the best and second-best for each query descriptor.
+    std::vector<DMatch> good_matches; // creates an empty vector to store the good matches that pass the Lowe's ratio test
     for (size_t i = 0; i < knn_matches.size(); i++)
     {
         if (knn_matches[i][0].distance < ratio_thresh * knn_matches[i][1].distance)
@@ -54,10 +64,14 @@ int main( int argc, char* argv[] )
             good_matches.push_back(knn_matches[i][0]);
         }
     }
+    // adds valid matches to the goodmatches vector
+        
     //-- Draw matches
-    Mat img_matches;
+    Mat img_matches; 
     drawMatches( img_object, keypoints_object, img_scene, keypoints_scene, good_matches, img_matches, Scalar::all(-1),
                  Scalar::all(-1), std::vector<char>(), DrawMatchesFlags::NOT_DRAW_SINGLE_POINTS );
+    // draws lines between the matching keypoints in the object and scene images. Stores the resulting image in img_matches. 
+        
     //-- Localize the object
     std::vector<Point2f> obj;
     std::vector<Point2f> scene;
@@ -67,7 +81,11 @@ int main( int argc, char* argv[] )
         obj.push_back( keypoints_object[ good_matches[i].queryIdx ].pt );
         scene.push_back( keypoints_scene[ good_matches[i].trainIdx ].pt );
     }
+    // obj and scene vectors are populated with the pixel coordinates of the matching keypoints    
+        
     Mat H = findHomography( obj, scene, RANSAC );
+    // findHomography function estimates the homography matrix H that maps the points in the object image to their corresponding points in the scene image.
+        
     //-- Get the corners from the image_1 ( the object to be "detected" )
     std::vector<Point2f> obj_corners(4);
     obj_corners[0] = Point2f(0, 0);
@@ -76,6 +94,9 @@ int main( int argc, char* argv[] )
     obj_corners[3] = Point2f( 0, (float)img_object.rows );
     std::vector<Point2f> scene_corners(4);
     perspectiveTransform( obj_corners, scene_corners, H);
+    // The four corners of img_object are defined.
+    // perspectiveTransform() applies the homography matrix to map the corners from the object image to the scene image
+        
     //-- Draw lines between the corners (the mapped object in the scene - image_2 )
     line( img_matches, scene_corners[0] + Point2f((float)img_object.cols, 0),
           scene_corners[1] + Point2f((float)img_object.cols, 0), Scalar(0, 255, 0), 4 );
@@ -85,6 +106,8 @@ int main( int argc, char* argv[] )
           scene_corners[3] + Point2f((float)img_object.cols, 0), Scalar( 0, 255, 0), 4 );
     line( img_matches, scene_corners[3] + Point2f((float)img_object.cols, 0),
           scene_corners[0] + Point2f((float)img_object.cols, 0), Scalar( 0, 255, 0), 4 );
+    // draws lines between the mapped corners, which essentially draws a rectangle around the detected object in the scene image.
+        
     //-- Show detected matches
     imshow("Good Matches & Object detection", img_matches );
     waitKey(); // waits until a key is pressed
