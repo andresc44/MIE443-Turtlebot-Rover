@@ -126,12 +126,14 @@ ImagePipeline::ImagePipeline(ros::NodeHandle& n) {
     image_transport::ImageTransport it(n);
     sub = it.subscribe(IMAGE_TOPIC, 1, &ImagePipeline::imageCallback, this);
     isValid = false;
+    // subscribing to receive the image
 }
 
 void ImagePipeline::imageCallback(const sensor_msgs::ImageConstPtr& msg) {
+    // image is converted from the ROS message to a cv::Mat object
     try {
         if(isValid) {
-            img.release();
+            img.release(); //previous image is released from memory 
         }
         img = (cv_bridge::toCvShare(msg, IMAGE_TYPE)->image).clone();
         isValid = true;
