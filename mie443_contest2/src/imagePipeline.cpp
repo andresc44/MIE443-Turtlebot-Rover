@@ -155,7 +155,10 @@ int ImagePipeline::getTemplateID(Boxes& boxes) {
         std::cout << "img.cols:" << img.cols << std::endl;
     } else {
         /***YOUR CODE HERE***/
-        // Use: boxes.templates
+        // Use: boxes.templates --> vector whose elements are grayscale cv::mat images of box templates
+        // template id 1 = kelloggs raisin bran
+        // template id 2 = cinnamon toast crunch
+        // template id 3 = kelloggs rice krispies
         cv::imshow("view", img);
         cv::waitKey(10); // waits for 10 milliseconds
     }  
