@@ -4,7 +4,7 @@
 
 bool Boxes::load_coords() {
     std::string filePath = ros::package::getPath("mie443_contest2") +
-                            std::string("/boxes_database/coords.xml");
+                            std::string("/boxes_database/gazebo_coords.xml");
     cv::FileStorage fs(filePath, cv::FileStorage::READ);
     if(fs.isOpened()) {
         cv::FileNode node;
@@ -17,7 +17,7 @@ bool Boxes::load_coords() {
             node = fs[coords_xml[i]];
             if(node.type() != cv::FileNode::SEQ) {
                 std::cout << "XML ERROR: Data in " << coords_xml[i]
-                            << " is improperly formatted - check input.xml" << std::endl;
+                            << " is improperly formatted - check input.xml" << std::endl << "node.type() : " << node.type();
             } else {
                 it = node.begin();
                 end = node.end();

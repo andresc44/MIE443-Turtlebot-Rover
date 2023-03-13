@@ -6,7 +6,6 @@
 
 #include <iostream>
 #include "opencv2/core.hpp"
-#ifdef HAVE_OPENCV_XFEATURES2D
 #include "opencv2/calib3d.hpp"
 #include "opencv2/highgui.hpp"
 #include "opencv2/imgproc.hpp"
@@ -26,16 +25,17 @@ int main(int argc, char** argv) {
     ros::Subscriber amclSub = n.subscribe("/amcl_pose", 1, &RobotPose::poseCallback, &robotPose);
     // Initialize box coordinates and templates
     Boxes boxes; 
-    if(!boxes.load_coords() || !boxes.load_templates()) {
-        std::cout << "ERROR: could not load coords or templates" << std::endl;
-        return -1;
-    }
-    for(int i = 0; i < boxes.coords.size(); ++i) {
-        std::cout << "Box coordinates: " << std::endl;
-        std::cout << i << " x: " << boxes.coords[i][0] << " y: " << boxes.coords[i][1] << " z: " 
-                  << boxes.coords[i][2] << std::endl;
-    }
-    // Initialize image objectand subscriber.
+    boxes.load_templates();
+    // if(!boxes.load_coords() || !boxes.load_templates()) {
+    //     std::cout << "ERROR: could not load coords or templates" << std::endl;
+    //     return -1;
+    // }
+    // for(int i = 0; i < boxes.coords.size(); ++i) {
+    //     std::cout << "Box coordinates: " << std::endl;
+    //     std::cout << i << " x: " << boxes.coords[i][0] << " y: " << boxes.coords[i][1] << " z: " 
+    //               << boxes.coords[i][2] << std::endl;
+    // }
+    // Initialize image object and subscriber.
     ImagePipeline imagePipeline(n);
 
     // contest count down timer
@@ -54,3 +54,4 @@ int main(int argc, char** argv) {
     }
     return 0;
 }
+
