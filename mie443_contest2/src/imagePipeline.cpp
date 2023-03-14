@@ -47,7 +47,11 @@ int ImagePipeline::getTemplateID(Boxes& boxes) {    //This is called in main con
         /***YOUR CODE HERE***/                 /// this should compare the boxes images (passed in the argument) to the video str. It seems boxes.templates (xml) is a vector of 3 files, and we have 4 cases
         // Use: boxes.templates                 ///i think we need to compare the stream with boxes.templates(1), (2) and (3) and have 'else' be the blank case. Then set template_id =1 for the first 1, or 2 for second... and 4 for the else case
         
-        ///for loop, for each match, remove item from a master list, once the master list reaches 1, that last one is automatically returned
+        ///for loop, for each match, remove item from a master list, once the master list reaches 1, that last one is automatically returned - maybe on their end after 
+        
+        cv::imshow("view", img);   ///img is the video stream, we compare this with boxes, and display the stream image
+        cv::waitKey(10);
+        
         
         Mat img_object =  boxes.templates[1];  ///boxes images // make sure this is the correct reference 
         Mat img_scene = img;   //  Sensor images
@@ -119,8 +123,7 @@ int ImagePipeline::getTemplateID(Boxes& boxes) {    //This is called in main con
         
         
         
-        cv::imshow("view", img);   ///img is the video stream, we compare this with boxes, and display the stream image
-        cv::waitKey(10);
+     
     }  
     return template_id;      ///this function will return the ID index to the contest file
 }
