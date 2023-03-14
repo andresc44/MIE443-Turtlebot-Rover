@@ -58,7 +58,12 @@ int ImagePipeline::getTemplateID(Boxes& boxes) {
         //cv::imshow("view", img);
         //cv::waitKey(30000); // waits for 10 milliseconds        
         Mat img_scene = img;
-        Mat img_object = boxes.templates[2];      
+        //Mat img_object = boxes.templates[2]; 
+
+        for (int i = 0; i <= 2; i++)
+        {
+            Mat img_object = boxes.templates[i];
+            int templateIter = 0;
 
         if (img_object.empty() || img_scene.empty() )
         {
@@ -137,30 +142,32 @@ int ImagePipeline::getTemplateID(Boxes& boxes) {
         line( img_matches, scene_corners[3] + Point2f((float)img_object.cols, 0),
             scene_corners[0] + Point2f((float)img_object.cols, 0), Scalar( 0, 255, 0), 4 );
         // draws lines between the mapped corners, which essentially draws a rectangle around the detected object in the scene image.
-            
-        //-- Show detected matches
-        // int rows = img_matches.rows;
-        // std::cout << rows << std::endl;
 
-        // int cols = img_matches.cols;
-        // std::cout << cols << std::endl;
-
-        // int elements = rows * cols;
-        // std::cout << elements << std::endl;
-
-        if (good_matches.size() < 50){
+        if (good_matches.size() < 100){
             std::cout << "No Match" << std::endl;
+            //templateIter ++;
+            continue;
         }
         else{
+            template_id = i;
+            std::cout << template_id << std::endl;
             imshow("Good Matches & Object detection", img_matches );
             waitKey(); // waits until a key is pressed
+            break;
         }
+
+        // if (templateIter == 3)
+        // {
+        //     template_id = 4; //blank
+        //     std::cout << template_id << std::endl;
+        // }
 
         // Use: boxes.templates --> vector whose elements are grayscale cv::mat images of box templates
         // template id 1 = kelloggs raisin bran
         // template id 2 = cinnamon toast crunch
         // template id 3 = kelloggs rice krispies
         // this code will be triggered when the robot comes to a stop and is ready for image processing
+        }
     }  
     return template_id;
 }
