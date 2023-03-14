@@ -58,11 +58,7 @@ int ImagePipeline::getTemplateID(Boxes& boxes) {
         //cv::imshow("view", img);
         //cv::waitKey(30000); // waits for 10 milliseconds        
         Mat img_scene = img;
-        Mat img_object = boxes.templates[1];
-
-        cv::imshow("view",img_object);
-        cv::waitKey(10); // waits for 10 milliseconds        
-
+        Mat img_object = boxes.templates[2];      
 
         if (img_object.empty() || img_scene.empty() )
         {
@@ -143,16 +139,16 @@ int ImagePipeline::getTemplateID(Boxes& boxes) {
         // draws lines between the mapped corners, which essentially draws a rectangle around the detected object in the scene image.
             
         //-- Show detected matches
-        int rows = img_matches.rows;
-        std::cout << rows << std::endl;
+        // int rows = img_matches.rows;
+        // std::cout << rows << std::endl;
 
-        int cols = img_matches.cols;
-        std::cout << cols << std::endl;
+        // int cols = img_matches.cols;
+        // std::cout << cols << std::endl;
 
-        int elements = rows * cols;
-        std::cout << elements << std::endl;
+        // int elements = rows * cols;
+        // std::cout << elements << std::endl;
 
-        if (elements < 50){
+        if (good_matches.size() < 50){
             std::cout << "No Match" << std::endl;
         }
         else{
