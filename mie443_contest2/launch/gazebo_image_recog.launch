@@ -1,0 +1,30 @@
+<!-- Launch turtlebot world, launch amcl with known map, and start rviz -->
+<launch>
+    
+    <include file="$(find mie443_contest2)/launch/turtlebot_world.launch">
+        <arg name="world" value="1"/>
+    </include>
+
+    <include file="$(find turtlebot_gazebo)/launch/amcl_demo.launch">
+        <arg name="map_file" value="/home/turtlebot/catkin_ws/src/mie443_contest2/maps/map_1.yaml"/>
+    </include>
+
+    <include file="$(find turtlebot_rviz_launchers)/launch/view_navigation.launch" />
+    
+</launch>
+
+
+
+<!-- roslaunch mie443_contest2 turtlebot_world.launch world:=1
+roslaunch turtlebot_gazebo amcl_demo.launch map_file:=/home/turtlebot/catkin_ws/src/mie443_contest2/maps/map_1.yaml
+roslaunch turtlebot_rviz_launchers view_navigation.launch
+rosrun mie443_contest2 contest2
+
+
+rosrun mie443_contest2 webcam_publisher 0
+
+
+roslaunch turtlebot_bringup minimal.launch
+roslaunch turtlebot_navigation amcl_demo.launch map_file:=/<map_path>/my_map.yaml
+roslaunch turtlebot_rviz_launchers view_navigation.launch
+rosrun mie443_contest2 contest2 -->
