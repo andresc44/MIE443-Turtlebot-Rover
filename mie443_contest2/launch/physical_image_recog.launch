@@ -4,7 +4,8 @@
     <include file="$(find turtlebot_bringup)/launch/minimal.launch" />
 
     <include file="$(find turtlebot_gazebo)/launch/amcl_demo.launch">
-        <arg name="map_file" value="/home/turtlebot/catkin_ws/src/mie443_contest2/maps/map_1.yaml"/>
+        <arg name="map_file" value="/home/selin/catkin_ws/src/MIE443-Turtlebot-Rover/mie443_contest2/maps/map_1.yaml"/>
+        <!-- VERY IMPORTANT, CHANGE THE LINE ABOVE TO THE NAME OF THE COMPUTER IT IS RUNNING ON -->
     </include>
 
     <include file="$(find turtlebot_rviz_launchers)/launch/view_navigation.launch" />

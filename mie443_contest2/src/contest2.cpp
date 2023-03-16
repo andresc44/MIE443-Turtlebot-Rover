@@ -27,17 +27,21 @@
 #include <actionlib/client/simple_action_client.h>
 #include <cmath>
 #include <math.h>
-#include <tf2/Quaternion.h>
 #include <nav_msgs/GetPlan.h>
 
 //!!!!!!CONSTANTS!!!!!!!!!!!!!!!!!!!!!
 #define LOOP_RATE 10                                // Rate for while loops that dictate callback and publish frequency (Hz)
-#define VISION_RADIUS 0.3                           // The distance from the centre of the turtlebot to the centre of the cereal box when parked and scanning
-#define ANGLE_INCREMENT 15                          // Degrees by which to increase in search for optimal goal destination from the centre
-#define MAX_ANGLE 75                                // Max possible angle to deviate from centre optimal spot
-#define CAMERA_LIMIT 20                             // Seconds to be stuck trying to read an image
-#define ARRIVAL_DELAY 1                             // Time to wait before starting to try to scan camera
+#define VISION_RADIUS 0.3                           // The distance from the centre of the turtlebot to the front of the cereal box when parked and scanning
+#define ANGLE_INCREMENT 10                          // Degrees by which to increase in search for optimal goal destination from the centre
+#define MAX_ANGLE 60                                // Max possible angle to deviate from centre optimal spot
+// #define CAMERA_LIMIT 20                             // Seconds to be stuck trying to read an image
+#define ARRIVAL_DELAY 1                             // Time to wait before starting to try to scan camera [s]
 #define GOAL_TOLERANCE 0.03                         // Tolerance for goal destination when trying to make plan (x, and y)
+
+// !!!!!!!!!!!!USER-DEFINED FUNCTION!!!!!!!!!!
+
+
+
 
 // !!!!!!!!!!!!!MAIN!!!!!!!!!!!!!!!!!!!!!!!!!!
 int main(int argc, char** argv) {
@@ -68,6 +72,7 @@ int main(int argc, char** argv) {
     // std::chrono::time_point<std::chrono::system_clock> camera_start; // Timer for camera to get result
     
     geometry_msgs::PoseStamped target_pose;
+    geometry_msgs::PoseStamped start_pose;
     geometry_msgs::Quaternion q;
     nav_msgs::GetPlan srv;
     target_pose.header.frame_id = "map";
@@ -83,7 +88,7 @@ int main(int argc, char** argv) {
     uint8_t yaw_adjust = 0;
     float trajectory_x = 0;
     float trajectory_y = 0;
-    float trajectory_yaw = 0;
+    float trajectory_phi = 0;
     float cereal_x = 0;
     float cereal_y = 0;
     float cereal_yaw = 0;
@@ -98,7 +103,7 @@ int main(int argc, char** argv) {
         ros::spinOnce();
 
         if (accum > 0) {
-            target = GetNearestNeighbour(robot_pose, boxes.coords, visited); //output uint8_t from 0-4
+            target = getNearestNeighbour(robot_pose, boxes.coords, visited); //output uint8_t from 0-4
             if (target > 4) continue;
 
             cereal_x = boxes.coords[target][0];
@@ -119,22 +124,32 @@ int main(int argc, char** argv) {
                     yaw_adjust = -(offset_angle * M_PI/180) + cereal_yaw;
                 }
 
-                trajectory_x = VISION_RADIUS*cosf(yaw_adjust) + x_coordinate;
-                trajectory_y = VISION_RADIUS*sinf(yaw_adjust) + y_coordinate;
-                trajectory_phi = (yaw_adjust + M_PI) % (2*M_PI);
+                trajectory_x = VISION_RADIUS*cosf(yaw_adjust) + cereal_x;
+                trajectory_y = VISION_RADIUS*sinf(yaw_adjust) + cereal_y;
+                trajectory_phi = (yaw_adjust + M_PI); //!!!!!!!Check what the bounds of this need to be
 
                 // try to make plan with trajectory_x, trajectory_y, trajectory_phi, if so, break loop
                 target_pose.header.stamp = ros::Time::now();
                 target_pose.pose.position.x = trajectory_x; // index coordinates file;
                 target_pose.pose.position.y = trajectory_y; // index coordinates file;
 
-                q = tf::createQuaternionMsgFromYaw(phiGoal);
+                q = tf::createQuaternionMsgFromYaw(trajectory_phi);
                 target_pose.pose.orientation.x = 0.0;
                 target_pose.pose.orientation.y = 0.0;
                 target_pose.pose.orientation.z = q.z;
                 target_pose.pose.orientation.w = q.w;
 
-                srv.request.start  = GlobalRobotPose;
+                start_pose.header.stamp = ros::Time::now();
+                start_pose.pose.position.x = robot_pose.x; // index coordinates file;
+                start_pose.pose.position.y = robot_pose.y; // index coordinates file;
+
+                q = tf::createQuaternionMsgFromYaw(robot_pose.phi);
+                start_pose.pose.orientation.x = 0.0;
+                start_pose.pose.orientation.y = 0.0;
+                start_pose.pose.orientation.z = q.z;
+                start_pose.pose.orientation.w = q.w;
+
+                srv.request.start  = start_pose;
                 srv.request.goal = target_pose;
 
                 if (move_client.call(srv)) break;
@@ -148,7 +163,7 @@ int main(int argc, char** argv) {
             is_back_at_start = true;
         }
 
-        arrived_at_target = robot_pose.moveToGoal(trajectory_x, trajectory_y, trajectory_phi);
+        arrived_at_target = Navigation::moveToGoal(trajectory_x, trajectory_y, trajectory_phi);
 
         if((arrived_at_target) && (!is_back_at_start)) {
             ros::Duration(ARRIVAL_DELAY).sleep();               // Small pause to account for momentum shift
@@ -164,11 +179,13 @@ int main(int argc, char** argv) {
             visited[target] = 0;
             results[target] = label;// OpenCV, !!!Ask OpenCV people to return 255 if no good image found. Move onto next goal
 
-            accum = accumulate(visited, visited + 5, accum=0);
+            accum = std::accumulate(visited, visited + 5, accum=0);
 
             if (accum == 1) {
-                if (CheckRepeat(visited)) { //input is visited array, output is boolean
-                    results = FillResults(results); // Input is results array, output is results array
+                if (checkRepeat(results)) { //input is visited array, output is boolean
+                // if (true) { //input is visited array, output is boolean
+
+                    results = fillResults(results); // Input is results array, output is results array
                     accum = 0;
                 }
             }
