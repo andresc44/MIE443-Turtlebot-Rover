@@ -41,6 +41,108 @@
 // !!!!!!!!!!!!USER-DEFINED FUNCTION!!!!!!!!!!
 
 
+int getNearestNeighbour(RobotPose robot_pose, std::vector<std::vector<float>> box_coordinates, bool visited[5]){
+    // 	Inputs:
+    //	robot_pose = (x,y,phi)
+    //	box_coordinates = box.coords
+    //	visited = [1,1,1,1,1]
+    //	Outputs:
+    //	closest_idx = index of closest, unvisited box
+    
+
+    //  compare box_coords array with visited array
+    int sum = std::accumulate(visited, visited+5, sum=0);  // Length of new list of possible targets
+    std::vector<std::vector<float>> possible_target{sum, std::vector<float>(3)};		// Initialize empty list of possible targets
+
+    for (int i = 0; i < box_coordinates.size(); ++i){
+        if (visited[i] == 1){ 				// Means location is unvisited
+            std::vector<float> tmp = box_coordinates[i];
+            possible_target.push_back(tmp);		// Add unviisted coordinates to possible_target vector
+        }
+    }
+    
+    
+    // Find closest index 
+    float closest_dist = 1000.0;
+    int closest_idx_p = -1;  // Index of cloest coordinates in the possible_targets array
+    int closest_idx = -1;  // Index of closest coordinates in the boxes_coordinates (AKA true) array
+    
+    for(int i = 0; i < sum; ++i) {
+        float x = possible_target[i][0];
+        float y = possible_target[i][1];
+
+        float dx = x - robot_pose.x;
+        float dy = y - robot_pose.y;
+        float distance = std::sqrt(dx*dx+dy*dy);
+        if (distance < closest_dist){
+            closest_dist = distance;
+            closest_idx_p = i;
+        }
+    }
+    for (int i = 0; i < box_coordinates.size(); ++i) {
+    	if (box_coordinates[i] == possible_target[closest_idx_p]){
+        	closest_idx = i;
+        }
+    }
+    return closest_idx;
+}
+
+
+// In case std::accumulate doesn't work...
+int sum(int array[5]){
+    int sum = 0;
+    for(int i = 0; i <5; i++){
+        sum += array[i];
+    }
+    return sum;
+}
+
+
+int checkRepeat(uint8_t results_array[5]){
+    bool duplicate = false;
+    for (int i = 0; i<5; i++){
+        for (int n = i+1; n <5; n++){
+            if (results_array[n] == results_array[i]){
+                duplicate = true;
+            }
+        }
+    }
+    return duplicate;
+}
+
+
+// Duplicate =  True and therefore the last unvisited location is unique (not a repeat)
+std::tuple<int, int> fillResults(uint8_t results_array[5]){
+    uint8_t unvisited_idx = 55;
+    uint8_t missing_id = 55;
+    bool cases[4] = {0,0,0,0};
+
+    for (int i = 0; i<5; i++){
+        if (results_array[i] == 0){ // matches with raisin
+            cases[0] = 1;
+        }
+        else if (results_array[i] == 1){ // matches with cinnamon
+            cases[1] = 1;
+        }
+        else if (results_array[i] == 2){ // matches with rice
+            cases[2] = 1;
+        }
+        else if (results_array[i] ==3){ // matches with blank
+            cases[3] = 1;
+        }
+        else{ // no match then it's unvisited = 55
+            unvisited_idx = i;
+        }
+    }
+    for (int i = 0; i<4; i++){
+        if (cases[i] ==0){
+            missing_id = i;
+        }
+    }
+    return std::tuple<int, int> {unvisited_idx, missing_id};
+}
+
+
 
 
 // !!!!!!!!!!!!!MAIN!!!!!!!!!!!!!!!!!!!!!!!!!!
@@ -83,7 +185,7 @@ int main(int argc, char** argv) {
     uint8_t results[5] = {255, 255, 255, 255, 255};           // 0: Raisin Bran, 1: Cinnamon Toast Crunch, 2: Rice Krispies, 3: Blank
     uint8_t accum = 0;
     uint8_t target = 255;
-    uint8_t label = 255;
+    int label = 255;
     uint8_t offset_angle = 0;
     uint8_t yaw_adjust = 0;
     float trajectory_x = 0;
@@ -96,6 +198,10 @@ int main(int argc, char** argv) {
     bool is_positive = 0;
     bool is_back_at_start = 0;
     bool arrived_at_target = 0;
+
+    uint8_t missing_id = 255;
+    uint8_t missing_label = 255;
+
     
 
     // Execute strategy.
@@ -152,7 +258,8 @@ int main(int argc, char** argv) {
                 srv.request.start  = start_pose;
                 srv.request.goal = target_pose;
 
-                if (move_client.call(srv)) break;
+                move_client.call(srv);
+                if (srv.response.plan.poses.size() > 0) break;
                 i++;
             }
         }
@@ -176,6 +283,7 @@ int main(int argc, char** argv) {
             // }
 
             label = image_pipeline.getTemplateID(boxes); //int from 0-3
+            ROS_INFO("label: %i", label);
             visited[target] = 0;
             results[target] = label;// OpenCV, !!!Ask OpenCV people to return 255 if no good image found. Move onto next goal
 
@@ -185,7 +293,8 @@ int main(int argc, char** argv) {
                 if (checkRepeat(results)) { //input is visited array, output is boolean
                 // if (true) { //input is visited array, output is boolean
 
-                    results = fillResults(results); // Input is results array, output is results array
+                    std::tie(missing_id, missing_label) = fillResults(results); // Input is results array, output is results array
+                    results[missing_id] = missing_label;
                     accum = 0;
                 }
             }
