@@ -75,14 +75,22 @@ int getNearestNeighbour(RobotPose robot_pose, std::vector<std::vector<float>> bo
         float dy = y - robot_pose.y;
         float distance = std::sqrt(dx*dx+dy*dy);
         if (distance < closest_dist){
+            ROS_INFO("Coordinate ID: %i", i);
+            ROS_INFO("Distance: %f", distance);
             closest_dist = distance;
             closest_idx_p = i;
         }
     }
     for (int i = 0; i < box_coordinates.size(); ++i) {
+        for (int j = 0; j < 3; j++) {
+            std::cout << box_coordinates[i][j] << "\n" << possible_target[closest_idx_p][j];
+        }
+        ROS_INFO("we here");
     	if (box_coordinates[i] == possible_target[closest_idx_p]){
+            ROS_INFO("Equal");
         	closest_idx = i;
         }
+        
     }
     return closest_idx;
 }
@@ -183,10 +191,10 @@ int main(int argc, char** argv) {
     // uint64_t camera_seconds_elapsed = 0;
     uint64_t seconds_elapsed = 0;
     uint8_t results[5] = {255, 255, 255, 255, 255};           // 0: Raisin Bran, 1: Cinnamon Toast Crunch, 2: Rice Krispies, 3: Blank
-    uint8_t accum = 0;
-    uint8_t target = 255;
+    int accum = 255;
+    int target = 255;
     int label = 255;
-    uint8_t offset_angle = 0;
+    int offset_angle = 0;
     uint8_t yaw_adjust = 0;
     float trajectory_x = 0;
     float trajectory_y = 0;
@@ -196,7 +204,7 @@ int main(int argc, char** argv) {
     float cereal_yaw = 0;
     bool visited[5] = {1, 1, 1, 1, 1};
     bool is_positive = 0;
-    bool is_back_at_start = 0;
+    bool is_back_at_start = false;
     bool arrived_at_target = 0;
 
     uint8_t missing_id = 255;
@@ -210,6 +218,7 @@ int main(int argc, char** argv) {
 
         if (accum > 0) {
             target = getNearestNeighbour(robot_pose, boxes.coords, visited); //output uint8_t from 0-4
+            ROS_INFO("target: %i ", target);
             if (target > 4) continue;
 
             cereal_x = boxes.coords[target][0];
@@ -268,8 +277,9 @@ int main(int argc, char** argv) {
             trajectory_y = 0;
             trajectory_phi = 0;
             is_back_at_start = true;
+            ROS_INFO("Went into else");
         }
-
+        ROS_INFO("TARGETS x: %f, y: %f, phi: %f, offset angle: %i", trajectory_x, trajectory_y, trajectory_phi, offset_angle);
         arrived_at_target = Navigation::moveToGoal(trajectory_x, trajectory_y, trajectory_phi);
 
         if((arrived_at_target) && (!is_back_at_start)) {
@@ -288,11 +298,11 @@ int main(int argc, char** argv) {
             results[target] = label;// OpenCV, !!!Ask OpenCV people to return 255 if no good image found. Move onto next goal
 
             accum = std::accumulate(visited, visited + 5, accum=0);
-
+            ROS_INFO("Locations visited: %i", accum);
             if (accum == 1) {
                 if (checkRepeat(results)) { //input is visited array, output is boolean
                 // if (true) { //input is visited array, output is boolean
-
+                    ROS_INFO("there are repeats");
                     std::tie(missing_id, missing_label) = fillResults(results); // Input is results array, output is results array
                     results[missing_id] = missing_label;
                     accum = 0;
