@@ -53,44 +53,58 @@ int getNearestNeighbour(RobotPose robot_pose, std::vector<std::vector<float>> bo
     //  compare box_coords array with visited array
     int sum = std::accumulate(visited, visited+5, sum=0);  // Length of new list of possible targets
     std::vector<std::vector<float>> possible_target{sum, std::vector<float>(3)};		// Initialize empty list of possible targets
+    int possible_idx = 0;
 
-    for (int i = 0; i < box_coordinates.size(); ++i){
-        if (visited[i] == 1){ 				// Means location is unvisited
-            std::vector<float> tmp = box_coordinates[i];
-            possible_target.push_back(tmp);		// Add unviisted coordinates to possible_target vector
+    while (possible_idx < sum){
+        for (int i = 0; i < box_coordinates.size(); ++i){
+            if (visited[i] == 1){ 				// Means location is unvisited
+                for (int j = 0; j < 3; j++){
+                    possible_target[possible_idx][j]= box_coordinates[i][j]; // Add unvisited coordinates to possible_target vector
+                    // std::cout << i << j << "Possible: " << possible_target[possible_idx][j] << std::endl;
+                }
+                possible_idx += 1;
+            }
         }
     }
     
     
+
     // Find closest index 
     float closest_dist = 1000.0;
-    int closest_idx_p = -1;  // Index of cloest coordinates in the possible_targets array
+    int closest_idx_p = -1;  // Index of cloest coordinates in the possible_target array
     int closest_idx = -1;  // Index of closest coordinates in the boxes_coordinates (AKA true) array
     
     for(int i = 0; i < sum; ++i) {
         float x = possible_target[i][0];
         float y = possible_target[i][1];
+        // std::cout << i << "x distance: " << x << "y distance: " << y << std::endl;
 
         float dx = x - robot_pose.x;
         float dy = y - robot_pose.y;
         float distance = std::sqrt(dx*dx+dy*dy);
+        // ROS_INFO("Possible Array Index: %i", i);
+        // ROS_INFO("Distance: %f", distance);
         if (distance < closest_dist){
-            ROS_INFO("Coordinate ID: %i", i);
-            ROS_INFO("Distance: %f", distance);
             closest_dist = distance;
             closest_idx_p = i;
+            // ROS_INFO("Closest_idx_p: %i", closest_idx_p);
         }
     }
     for (int i = 0; i < box_coordinates.size(); ++i) {
+        bool same = false;
         for (int j = 0; j < 3; j++) {
-            std::cout << box_coordinates[i][j] << "\n" << possible_target[closest_idx_p][j];
+            if (box_coordinates[i][j] == possible_target[closest_idx_p][j]){
+                // ROS_INFO("Equal %i", j);
+                same = true;
+            }
+            else{
+                // ROS_INFO("Not Equal %i, %i", i, j);
+                same = false;
+            }
         }
-        ROS_INFO("we here");
-    	if (box_coordinates[i] == possible_target[closest_idx_p]){
-            ROS_INFO("Equal");
-        	closest_idx = i;
+        if (same){
+            closest_idx = i;
         }
-        
     }
     return closest_idx;
 }
@@ -107,46 +121,53 @@ int sum(int array[5]){
 
 
 int checkRepeat(uint8_t results_array[5]){
-    bool duplicate = false;
     for (int i = 0; i<5; i++){
         for (int n = i+1; n <5; n++){
             if (results_array[n] == results_array[i]){
-                duplicate = true;
+                return true;
             }
         }
     }
-    return duplicate;
+    return false;
 }
 
 
 // Duplicate =  True and therefore the last unvisited location is unique (not a repeat)
 std::tuple<int, int> fillResults(uint8_t results_array[5]){
-    uint8_t unvisited_idx = 55;
-    uint8_t missing_id = 55;
+    int unvisited_idx = -1;
+    int missing_id = -1;
     bool cases[4] = {0,0,0,0};
 
     for (int i = 0; i<5; i++){
         if (results_array[i] == 0){ // matches with raisin
+            // ROS_INFO("There is Raisin");
             cases[0] = 1;
         }
         else if (results_array[i] == 1){ // matches with cinnamon
             cases[1] = 1;
+            // ROS_INFO("There is Cinnamon");
         }
         else if (results_array[i] == 2){ // matches with rice
             cases[2] = 1;
+            // ROS_INFO("There is Rice");
         }
         else if (results_array[i] ==3){ // matches with blank
             cases[3] = 1;
+            // ROS_INFO("There is blank");
         }
         else{ // no match then it's unvisited = 55
             unvisited_idx = i;
+            // ROS_INFO("Unvisited Index: %i", unvisited_idx);
         }
     }
     for (int i = 0; i<4; i++){
-        if (cases[i] ==0){
+        // std::cout << "Case: " << i << "is " << cases[i] << std::endl;
+        if (cases[i] == false){
+            // ROS_INFO("Case is false");
             missing_id = i;
         }
     }
+    // ROS_INFO("Missing Id: %i", missing_id);
     return std::tuple<int, int> {unvisited_idx, missing_id};
 }
 
@@ -217,9 +238,16 @@ int main(int argc, char** argv) {
         ros::spinOnce();
 
         if (accum > 0) {
+            ROS_INFO("Robot Pose: (%f, %f, %f)", robot_pose.x, robot_pose.y, robot_pose.phi);
             target = getNearestNeighbour(robot_pose, boxes.coords, visited); //output uint8_t from 0-4
             ROS_INFO("target: %i ", target);
             if (target > 4) continue;
+
+            // bool x = 0;
+            // x = checkRepeat(results);
+            // ROS_INFO("checkRepeat: %i", x);
+            // std::tie(missing_id, missing_label) = fillResults(results);
+            // ROS_INFO("Missing_id should be 1 but is %i and label should be 2 but is %i", missing_id, missing_label);
 
             cereal_x = boxes.coords[target][0];
             cereal_y = boxes.coords[target][1];
