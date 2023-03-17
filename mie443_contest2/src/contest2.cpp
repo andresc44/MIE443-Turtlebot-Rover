@@ -215,8 +215,8 @@ int main(int argc, char** argv) {
     int accum = 255;
     int target = 255;
     int label = 255;
-    int offset_angle = 0;
-    uint8_t yaw_adjust = 0;
+    float offset_angle = 0;
+    float yaw_adjust = 0;
     float trajectory_x = 0;
     float trajectory_y = 0;
     float trajectory_phi = 0;
@@ -255,22 +255,29 @@ int main(int argc, char** argv) {
 
             int i = 0;
             while (offset_angle <= MAX_ANGLE) {
-
+                ROS_INFO("i = %i", i);
                 is_positive = i % 2;
                 if (is_positive) {                                      // Odd number for i, positive angle offset
                     offset_angle = ANGLE_INCREMENT * (i + 1)/2;         // Increment of ANGLE_INCREMENT degrees
+                    float offset_angle2 = 10 * (i+1)/2;
+                    ROS_INFO("Angle_increment: %i", ANGLE_INCREMENT);
+                    ROS_INFO("odd offset_angle: %f, %f", offset_angle, offset_angle2);
+                    ROS_INFO("M_PI = %f", M_PI);
                     yaw_adjust = (offset_angle * M_PI/180) + cereal_yaw;
                 } 
                 
                 else { //even numbers, include the initial 0 and the sunsequent clockwise locations in negative driection
                     offset_angle = ANGLE_INCREMENT * i/2;
+                    float offset_angle2 = 10 * i/2;
+                    ROS_INFO("even offset_angle: %f, %f", offset_angle, offset_angle2);
                     yaw_adjust = -(offset_angle * M_PI/180) + cereal_yaw;
                 }
 
+                ROS_INFO("yaw_adjust: %i", yaw_adjust);
                 trajectory_x = VISION_RADIUS*cosf(yaw_adjust) + cereal_x;
                 trajectory_y = VISION_RADIUS*sinf(yaw_adjust) + cereal_y;
                 trajectory_phi = (yaw_adjust + M_PI); //!!!!!!!Check what the bounds of this need to be
-
+                ROS_INFO("Trajectory_phi: %f", trajectory_phi);
                 // try to make plan with trajectory_x, trajectory_y, trajectory_phi, if so, break loop
                 target_pose.header.stamp = ros::Time::now();
                 target_pose.pose.position.x = trajectory_x; // index coordinates file;
@@ -296,6 +303,7 @@ int main(int argc, char** argv) {
                 srv.request.goal = target_pose;
 
                 move_client.call(srv);
+                ROS_INFO("srv.response.plan.poses.sizes: %f", srv.response.plan.poses.size());
                 if (srv.response.plan.poses.size() > 0) break;
                 i++;
             }
@@ -308,6 +316,7 @@ int main(int argc, char** argv) {
             ROS_INFO("Went into else");
         }
         ROS_INFO("TARGETS x: %f, y: %f, phi: %f, offset angle: %i", trajectory_x, trajectory_y, trajectory_phi, offset_angle);
+        // arrived_at_target = Navigation::moveToGoal(0, 0, 0);
         arrived_at_target = Navigation::moveToGoal(trajectory_x, trajectory_y, trajectory_phi);
 
         if((arrived_at_target) && (!is_back_at_start)) {
