@@ -2,7 +2,9 @@
 
 // sensor_msgs::image_encodings is a message type, BGR8 is an 8 bit encoding field
 #define IMAGE_TYPE sensor_msgs::image_encodings::BGR8
-#define IMAGE_TOPIC "camera/image" // kinect:"camera/rgb/image_raw" webcam:"camera/image"
+// #define IMAGE_TOPIC "camera/image" // kinect:"camera/rgb/image_raw" webcam:"camera/image"
+#define IMAGE_TOPIC "camera/rgb/image_raw" // kinect:"camera/rgb/image_raw" webcam:"camera/image"
+
 
 #include <iostream>
 #include "opencv2/core.hpp"
@@ -184,7 +186,7 @@ int ImagePipeline::getTemplateID(Boxes& boxes) {
             }
 
         }
-        if (max < 75)
+        if (max < 63)
         {
             template_id = 3; //blank
         }

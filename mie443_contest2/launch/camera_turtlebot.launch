@@ -1,0 +1,6 @@
+<!-- View the camera directly in a large size, the kinect camera -->
+<launch>
+    
+    <node type="rviz" name="rviz" pkg="rviz" args="-d $(find mie443_contest2)/rviz/rviz_kinect_topic_rgb_raw.rviz" />
+    
+</launch>
