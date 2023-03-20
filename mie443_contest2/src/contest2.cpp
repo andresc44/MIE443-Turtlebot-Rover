@@ -205,7 +205,9 @@ int main(int argc, char** argv) {
                   << boxes.coords[i][2] << std::endl;
     }
 
+
     ImagePipeline image_pipeline(n);                 // Initialize image object and subscriber.
+
 
     std::chrono::time_point<std::chrono::system_clock> start; // Contest count down timer
     start = std::chrono::system_clock::now();
@@ -376,15 +378,35 @@ int main(int argc, char** argv) {
             camera_seconds_elapsed = 0;
             label = -1;
             ROS_INFO("Waiting for valid image pipeline output");
+            
+            int idArray[5];
             while ((camera_seconds_elapsed < CAMERA_LIMIT) && (label == -1)) {
                 ros::spinOnce();
-                // label = image_pipeline.getTemplateID(boxes); //int from 0-3
-                label = 4;
+               
+                for (int k=0; k<5; k++)
+                {
+                    ros::spinOnce();
+                    // label = image_pipeline.getTemplateID(boxes); //int from 0-3
+                    label = 4;
+                    idArray[k]=label;
+                }
+
+                //label = 4;
                 camera_seconds_elapsed = std::chrono::duration_cast<std::chrono::seconds>(std::chrono::system_clock::now()-camera_start).count(); //time elapsed trying to read image
                 loop_rate.sleep(); 
             }
 
-            // label = image_pipeline.getTemplateID(boxes); //int from 0-3
+            int min = idArray[0];
+            for (int s=0; s < 5; s++)
+            {
+                if (idArray[s] < min)
+                {
+                    min = idArray[s];
+                }
+            }
+
+            label = min;
+            
             ROS_INFO("label: %i at location: %i", label, target);
             visited[target] = 0;
             results[target] = label;
