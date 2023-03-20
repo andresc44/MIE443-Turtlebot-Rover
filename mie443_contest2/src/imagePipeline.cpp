@@ -186,6 +186,9 @@ int ImagePipeline::getTemplateID(Boxes& boxes) {
             }
 
         }
+        ROS_INFO("maximum points achieved for cereal %i: %i points", template_id, max);
+        std::cout << "maximum points achieved for cereal:" << template_id << std::endl;
+        std::cout << "points:" << max << std::endl;
         if (max < 63)
         {
             template_id = 3; //blank

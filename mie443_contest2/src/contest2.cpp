@@ -20,6 +20,9 @@
 //forward is x direction
 //left is y direction
 
+// template id 1 = kelloggs raisin bran
+// template id 2 = cinnamon toast crunch
+// template id 3 = kelloggs rice krispies
 
 
 //!!!!!!!LIBRARIES!!!!!!!!!!!!!!!!!!!!!
@@ -39,8 +42,8 @@
 //!!!!!!CONSTANTS!!!!!!!!!!!!!!!!!!!!!
 #define LOOP_RATE 10                                // Rate for while loops that dictate callback and publish frequency (Hz)
 #define VISION_RADIUS 0.5     //Try to bump to 40                      // The distance from the centre of the turtlebot to the front of the cereal box when parked and scanning
-#define ANGLE_INCREMENT 0.1 //to be changed                          // Degrees by which to increase in search for optimal goal destination from the centre
-#define MAX_ANGLE 0       //to be changed                         // Max possible angle to deviate from centre optimal spot
+#define ANGLE_INCREMENT 10 //to be changed                          // Degrees by which to increase in search for optimal goal destination from the centre
+#define MAX_ANGLE 60       //to be changed                         // Max possible angle to deviate from centre optimal spot
 #define CAMERA_LIMIT 10                             // Seconds to be stuck trying to read an image
 #define ARRIVAL_DELAY 1                             // Time to wait before starting to try to scan camera [s]
 #define GOAL_TOLERANCE 0.03                         // Tolerance for goal destination when trying to make plan (x, and y)
@@ -130,7 +133,7 @@ int sum(int array[5]){
 int checkRepeat(int results_array[5]){
     for (int i = 0; i<5; i++){
         for (int n = i+1; n <5; n++){
-            if ((results_array[n] == results_array[i]) && (results_array[i] != -1) && (results_array[i] != 3)){ //!!!!!!!NEW ADDITION
+            if ((results_array[n] == results_array[i]) && (results_array[i] != -1) && (results_array[i] != 3) && (results_array[i] != 4)){ //!!!!!!!NEW ADDITION
                 return true;
             }
         }
@@ -189,7 +192,7 @@ int main(int argc, char** argv) {
 
     RobotPose robot_pose(0,0,0);                     // Index as robot_pose.x, robot_pose.y, robot_pose.phi
     ros::Subscriber amclSub = n.subscribe("/amcl_pose", 1, &RobotPose::poseCallback, &robot_pose);
-    ros::ServiceClient move_client = n.serviceClient<nav_msgs::GetPlan>("/make_plan"); // Client for the make_plan service
+    ros::ServiceClient move_client = n.serviceClient<nav_msgs::GetPlan>("/move_base/make_plan"); // Client for the make_plan service
     
     Boxes boxes;                                    // Initialize box coordinates and templates
     if(!boxes.load_coords() || !boxes.load_templates()) {
@@ -213,11 +216,11 @@ int main(int argc, char** argv) {
     geometry_msgs::PoseStamped start_pose;
     geometry_msgs::Quaternion q;
     nav_msgs::GetPlan srv;
-    target_pose.header.frame_id = "map";
-    srv.request.tolerance = GOAL_TOLERANCE;                   // Tolerance of destination goal in [m]
+    
 
     uint64_t camera_seconds_elapsed = 0;
     uint64_t seconds_elapsed = 0;
+    uint8_t loop_iterations = 0;
     int results[5] = {255, 255, 255, 255, 255};           // 0: Raisin Bran, 1: Cinnamon Toast Crunch, 2: Rice Krispies, 3: Blank
     // int results[5] = {0, 3, 1, 2, 255};           // 0: Raisin Bran, 1: Cinnamon Toast Crunch, 2: Rice Krispies, 3: Blank
     int accum = 255;
@@ -231,7 +234,11 @@ int main(int argc, char** argv) {
     float cereal_x = 0;
     float cereal_y = 0;
     float cereal_yaw = 0;
+    float initial_x = 0;
+    float initial_y = 0;
+    float initial_phi = 0;
     bool visited[5] = {1, 1, 1, 1, 1};
+    bool successful_plan = false;
     bool is_positive = 0;
     bool is_back_at_start = false;
     bool arrived_at_target = 0;
@@ -239,21 +246,27 @@ int main(int argc, char** argv) {
     uint8_t missing_id = 255;
     uint8_t missing_label = 255;
 
-    ros::spinOnce();
-    float initial_x = robot_pose.x;
-    float initial_y = robot_pose.y;
-    float initial_phi = robot_pose.phi;
+    
 
     
 
     // Execute strategy.
     while(ros::ok() && seconds_elapsed <= 300 && (!is_back_at_start)) {
         ros::spinOnce();
+        loop_iterations += 1;
+        if (loop_iterations < 5) { //Buffer so that robot pose can get accurate origin location rather than assuming zero
+            ros::spinOnce();
+            initial_x = robot_pose.x;
+            initial_y = robot_pose.y;
+            initial_phi = robot_pose.phi;
+            loop_rate.sleep();
+            continue;
+        }
 
         if (accum > 0) {
             // ROS_INFO("Robot Pose: (%f, %f, %f)", robot_pose.x, robot_pose.y, robot_pose.phi);
             target = getNearestNeighbour(robot_pose, boxes.coords, visited); //output uint8_t from 0-4
-            // ROS_INFO("target: %i ", target);
+            ROS_INFO("target: %i ", target);
             if (target > 4) continue;
 
             // // bool x = 0;
@@ -270,18 +283,19 @@ int main(int argc, char** argv) {
 
             int i = 0;
             offset_angle = 0;
+            successful_plan = false;
             while (offset_angle <= MAX_ANGLE) {
                 // ROS_INFO("i = %i", i);
                 is_positive = i % 2;
                 if (is_positive) {                                      // Odd number for i, positive angle offset
                     offset_angle = ANGLE_INCREMENT * (i + 1)/2;         // Increment of ANGLE_INCREMENT degrees
-                    // ROS_INFO("odd offset_angle: %f", offset_angle);
+                    ROS_INFO("Offset_angle: %f", offset_angle);
                     yaw_adjust = (offset_angle * M_PI/180) + cereal_yaw;
                 } 
                 
                 else { //even numbers, include the initial 0 and the sunsequent clockwise locations in negative driection
                     offset_angle = ANGLE_INCREMENT * i/2;
-                    // ROS_INFO("even offset_angle: %f", offset_angle);
+                    ROS_INFO("Offset_angle: %f", -offset_angle);
                     yaw_adjust = -(offset_angle * M_PI/180) + cereal_yaw;
                 }
 
@@ -292,6 +306,7 @@ int main(int argc, char** argv) {
                 // ROS_INFO("trajectory x: %f, trajectory y: %f, Trajectory_phi: %f", trajectory_x, trajectory_y, trajectory_phi);
                 // // try to make plan with trajectory_x, trajectory_y, trajectory_phi, if so, break loop
                 target_pose.header.stamp = ros::Time::now();
+                target_pose.header.frame_id = "map";
                 target_pose.pose.position.x = trajectory_x; // index coordinates file;
                 target_pose.pose.position.y = trajectory_y; // index coordinates file;
 
@@ -314,19 +329,23 @@ int main(int argc, char** argv) {
 
                 srv.request.start  = start_pose;
                 srv.request.goal = target_pose;
+                srv.request.tolerance = GOAL_TOLERANCE;                   // Tolerance of destination goal in [m]
+
 
                 move_client.call(srv);
                 // ROS_INFO("srv.response.plan.poses.size: %i", srv.response.plan.poses.size());
-                if (srv.response.plan.poses.size() > 0) break;
+                if (srv.response.plan.poses.size() > 0) {
+                    ROS_INFO("Successful plan found at %f, counter-clockwise: %i", offset_angle, is_positive);
+                    successful_plan = true;
+                    break;
+                }
                 i++;
             }
         }
         else { // All labels at locations are known
-            trajectory_x = initial_x;
-            trajectory_y = initial_y;
-            trajectory_phi = initial_phi;
             is_back_at_start = true;
             ROS_INFO("Returning to start, no locations left");
+            Navigation::moveToGoal(initial_x, initial_y, initial_phi);
             ROS_INFO("Final results: [%i, %i, %i, %i, %i]", results[0], results[1], results[2], results[3], results[4]);
         }
         // ROS_INFO("TARGETS x: %f, y: %f, phi: %f, offset angle: %f", trajectory_x, trajectory_y, trajectory_phi, offset_angle);
@@ -337,8 +356,18 @@ int main(int argc, char** argv) {
         // arrived_at_target = Navigation::moveToGoal(2.280940, -1.036683, 3.932593); // Location 3
         // arrived_at_target = Navigation::moveToGoal(1.887739, 1.743003, 1.566593); // Location 4
         // arrived_at_target = Navigation::moveToGoal(1.887739, 1.653003, 1.566593); // Location 4 alternative
+        if (successful_plan && !is_back_at_start) arrived_at_target = Navigation::moveToGoal(trajectory_x, trajectory_y, trajectory_phi);
 
-        arrived_at_target = Navigation::moveToGoal(trajectory_x, trajectory_y, trajectory_phi);
+        else if (!is_back_at_start){ //skip this destination rather than crash the move_base
+            visited[target] = 0;
+            results[target] = -1;
+            accum = std::accumulate(visited, visited + 5, accum=0);
+            ROS_INFO("Intermediate results: [%i, %i, %i, %i, %i]", results[0], results[1], results[2], results[3], results[4]);
+            ROS_INFO("Intermediate visited: [%i, %i, %i, %i, %i]", visited[0], visited[1], visited[2], visited[3], visited[4]);
+            ROS_INFO("Locations left to visit: %i", accum);
+            ROS_INFO("Failed to create successful plan to navigate to target: %i", target);
+            continue;
+        }
 
         if((arrived_at_target) && (!is_back_at_start)) {
             ros::Duration(ARRIVAL_DELAY).sleep();               // Small pause to account for momentum shift
@@ -350,7 +379,7 @@ int main(int argc, char** argv) {
             while ((camera_seconds_elapsed < CAMERA_LIMIT) && (label == -1)) {
                 ros::spinOnce();
                 // label = image_pipeline.getTemplateID(boxes); //int from 0-3
-                label = 1;
+                label = 4;
                 camera_seconds_elapsed = std::chrono::duration_cast<std::chrono::seconds>(std::chrono::system_clock::now()-camera_start).count(); //time elapsed trying to read image
                 loop_rate.sleep(); 
             }
@@ -366,14 +395,14 @@ int main(int argc, char** argv) {
             if (accum == 1) {
                 if (checkRepeat(results)) { //input is visited array, output is boolean
                 // if (true) { //input is visited array, output is boolean
-                    ROS_INFO("There are repeats");
+                    ROS_INFO("There are repeated labels, can skip the last destination");
                     std::tie(missing_id, missing_label) = fillResults(results); // Input is results array, output is results array
                     results[missing_id] = missing_label; 
                     ROS_INFO("Filled in results: [%i, %i, %i, %i, %i]", results[0], results[1], results[2], results[3], results[4]);
                     accum = 0;
                 }
                 else {
-                    ROS_INFO("There are no repeats, or results contains 255/-1");
+                    ROS_INFO("There are no repeats, or results contains error value/non-deterministic [-1, 3, 4]");
                 }
             }
         }
