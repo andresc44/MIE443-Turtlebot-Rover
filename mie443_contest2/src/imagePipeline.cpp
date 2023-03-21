@@ -57,8 +57,9 @@ int ImagePipeline::getTemplateID(Boxes& boxes) {
     } else {
         /***YOUR CODE HERE***/
         // CommandLineParser parser( argc, argv, keys );
-        //cv::imshow("view", img);
-        //cv::waitKey(30000); // waits for 10 milliseconds        
+        // cv::imshow("view", img);
+        // cv::waitKey(30000); // waits for 10 milliseconds        
+        
         Mat img_scene = img;
         int templateMatchArray[3];
 
@@ -107,7 +108,10 @@ int ImagePipeline::getTemplateID(Boxes& boxes) {
         drawMatches( img_object, keypoints_object, img_scene, keypoints_scene, good_matches, img_matches, Scalar::all(-1),
                     Scalar::all(-1), std::vector<char>(), DrawMatchesFlags::NOT_DRAW_SINGLE_POINTS );
         // draws lines between the matching keypoints in the object and scene images. Stores the resulting image in img_matches. 
-            
+        cv::imshow("view", img_matches);
+        cv::waitKey(2000); // holds the image up for indicated milliseconds        
+
+
         //-- Localize the object
         std::vector<Point2f> obj;
         std::vector<Point2f> scene;
@@ -145,7 +149,7 @@ int ImagePipeline::getTemplateID(Boxes& boxes) {
         // draws lines between the mapped corners, which essentially draws a rectangle around the detected object in the scene image.
 
         templateMatchArray[i] = good_matches.size();
-        std::cout << good_matches.size() << std::endl;
+        // std::cout << good_matches.size() << std::endl;
 
         // if (good_matches.size() < 100){
         //     std::cout << "No Match" << std::endl;
@@ -175,26 +179,25 @@ int ImagePipeline::getTemplateID(Boxes& boxes) {
         }
 
         int curr = 0;
-        int max = 0;
+        int maxMatch = 0;
         for (int j = 0; j < 3; j++)
         {
             curr = templateMatchArray[j];
-            if (curr > max)
+            if (curr > maxMatch)
             {
-                max = curr;
+                maxMatch = curr;
                 template_id = j;
             }
 
         }
-        ROS_INFO("maximum points achieved for cereal %i: %i points", template_id, max);
-        std::cout << "maximum points achieved for cereal:" << template_id << std::endl;
-        std::cout << "points:" << max << std::endl;
-        if (max < 63)
+        std::cout << "maxMatch" << std::endl;
+        std::cout << maxMatch << std::endl;
+        if (maxMatch < 70)
         {
             template_id = 3; //blank
         }
 
     }  
-    std::cout << template_id << std::endl;
+    // std::cout << template_id << std::endl;
     return template_id;
 }

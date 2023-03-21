@@ -1,4 +1,4 @@
-// Remember to check: gazebo launch file directory, image topic, which launch file to use, thresholds, and definitions
+// Remember to check: gazebo launch file directory, image topic, which launch file to use, thresholds, and definitions, boxes.cpp file
 
 
 
@@ -206,7 +206,7 @@ int main(int argc, char** argv) {
     }
 
 
-    ImagePipeline image_pipeline(n);                 // Initialize image object and subscriber.
+    ImagePipeline imagePipeline(n);                 // Initialize image object and subscriber.
 
 
     std::chrono::time_point<std::chrono::system_clock> start; // Contest count down timer
@@ -386,9 +386,10 @@ int main(int argc, char** argv) {
                 for (int k=0; k<5; k++)
                 {
                     ros::spinOnce();
-                    // label = image_pipeline.getTemplateID(boxes); //int from 0-3
-                    label = 4;
+                    label = imagePipeline.getTemplateID(boxes); //int from 0-3
+                    // label = 4;
                     idArray[k]=label;
+                    loop_rate.sleep();
                 }
 
                 //label = 4;
