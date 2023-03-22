@@ -108,8 +108,8 @@ int ImagePipeline::getTemplateID(Boxes& boxes) {
         drawMatches( img_object, keypoints_object, img_scene, keypoints_scene, good_matches, img_matches, Scalar::all(-1),
                     Scalar::all(-1), std::vector<char>(), DrawMatchesFlags::NOT_DRAW_SINGLE_POINTS );
         // draws lines between the matching keypoints in the object and scene images. Stores the resulting image in img_matches. 
-        cv::imshow("view", img_matches);
-        cv::waitKey(2000); // holds the image up for indicated milliseconds        
+        // cv::imshow("view", img_matches);
+        // cv::waitKey(2000); // holds the image up for indicated milliseconds        
 
 
         //-- Localize the object
@@ -123,7 +123,15 @@ int ImagePipeline::getTemplateID(Boxes& boxes) {
         }
         // obj and scene vectors are populated with the pixel coordinates of the matching keypoints    
             
-        Mat H = findHomography( obj, scene, RANSAC );
+        Mat H;
+        try {
+            H = findHomography( obj, scene, RANSAC );
+            
+        }
+        catch (cv::Exception& e) {
+            std::cout << "findHomography failed, likely no matches at all" << std::endl;
+            return 3;
+        }
         // findHomography function estimates the homography matrix H that maps the points in the object image to their corresponding points in the scene image.
             
         //-- Get the corners from the image_1 ( the object to be "detected" )
@@ -133,7 +141,23 @@ int ImagePipeline::getTemplateID(Boxes& boxes) {
         obj_corners[2] = Point2f( (float)img_object.cols, (float)img_object.rows );
         obj_corners[3] = Point2f( 0, (float)img_object.rows );
         std::vector<Point2f> scene_corners(4);
-        perspectiveTransform( obj_corners, scene_corners, H);
+        // std::cout << "Object" << std::endl;
+        // for (int k = 0; k < obj.size(); k++) {
+        //     std::cout << obj[k] << ' ' << std::endl;
+        // }
+        // std::cout << "scene" << std::endl;
+        // for (int k = 0; k < scene.size(); k++) {
+        //     std::cout << scene[k] << ' ' << std::endl;
+        // }
+        try {
+            perspectiveTransform( obj_corners, scene_corners, H);
+            
+        }
+        catch (std::exception& e) {
+            std::cout << "Error with perspectiveTransform" << std::endl;
+            return 3;
+        }
+        
         // The four corners of img_object are defined.
         // perspectiveTransform() applies the homography matrix to map the corners from the object image to the scene image
             
@@ -159,8 +183,8 @@ int ImagePipeline::getTemplateID(Boxes& boxes) {
         // else{
         //     template_id = i;
         //     std::cout << template_id << std::endl;
-        //     imshow("Good Matches & Object detection", img_matches );
-        //     waitKey(); // waits until a key is pressed
+            imshow("Good Matches & Object detection", img_matches );
+            waitKey(300); // waits until a key is pressed
         //     break;
         // }
 
@@ -190,11 +214,12 @@ int ImagePipeline::getTemplateID(Boxes& boxes) {
             }
 
         }
-        std::cout << "maxMatch" << std::endl;
-        std::cout << maxMatch << std::endl;
+        std::cout << "Highest match from label: " << template_id << std::endl;
+        std::cout << "Good matches: " << maxMatch << std::endl;
         if (maxMatch < 70)
         {
             template_id = 3; //blank
+            std::cout << "Not enough good matches, set as blank label" << std::endl;
         }
 
     }  

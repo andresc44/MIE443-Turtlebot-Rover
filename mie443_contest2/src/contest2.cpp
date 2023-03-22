@@ -1,6 +1,10 @@
 // Remember to check: gazebo launch file directory, image topic, which launch file to use, thresholds, and definitions, boxes.cpp file
 // !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!SET MAX TIMER ON WHILE LOOP TO 300 SECONDS!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 #define MAX_CONTEST_TIME 3000 //change to 300
+#include <iostream>
+#include <string>
+#include <fstream>
+std::string result_path ("/home/andres/turtlebot-ws/src/MIE443-Turtlebot-Rover/mie443_contest2/src/results.txt");
 // MIE443 CONTEST 2
 // Function variables: variable_name
 // Functions: functionName
@@ -21,7 +25,6 @@
 // template id 1 = kelloggs raisin bran
 // template id 2 = cinnamon toast crunch
 // template id 3 = kelloggs rice krispies
-
 
 //!!!!!!!LIBRARIES!!!!!!!!!!!!!!!!!!!!!
 #include <boxes.h>
@@ -49,7 +52,7 @@
 #define CAMERA_LIMIT 10                             // Seconds to be stuck trying to read an image
 #define ARRIVAL_DELAY 1                             // Time to wait before starting to try to scan camera [s]
 #define GOAL_TOLERANCE 0.03                         // Tolerance for goal destination when trying to make plan (x, and y)
-#define FORWARD_JUMP_SIZE 0.2                       // Move forward by 0.2m
+#define FORWARD_JUMP_SIZE 0.25                       // Move forward by 0.2m
 
 // !!!!!!!!!!GLOBAL VARIABLES!!!!!!!!!!!!!!!!!!!
 ros::Publisher VelPub;
@@ -472,8 +475,9 @@ int main(int argc, char** argv) {
         }
 
         if((arrived_at_target) && (!is_back_at_start)) {
-            ros::Duration(ARRIVAL_DELAY).sleep();               // Small pause to account for momentum shift
-            linear_move(VelPub, 0.1, FORWARD_JUMP_SIZE, 1); //0.1m/s, 0.2m, forward
+            // ros::Duration(ARRIVAL_DELAY).sleep();               // Small pause to account for momentum shift
+            if (view == 1) linear_move(VelPub, 0.1, FORWARD_JUMP_SIZE, 1); //0.1m/s, 0.2m, forward
+            else linear_move(VelPub, 0.1, FORWARD_JUMP_SIZE/2, 1); //0.1m/s, 0.2m, forward
             // ros::spinOnce();
             ros::Duration(ARRIVAL_DELAY).sleep();
             camera_start = std::chrono::system_clock::now();
@@ -494,7 +498,8 @@ int main(int argc, char** argv) {
                 //     loop_rate.sleep();
                 // }
 
-                label = 4;
+                // label = 4;
+                label = imagePipeline.getTemplateID(boxes); //int from 0-3
                 camera_seconds_elapsed = std::chrono::duration_cast<std::chrono::seconds>(std::chrono::system_clock::now()-camera_start).count(); //time elapsed trying to read image
                 loop_rate.sleep(); 
             }
@@ -534,13 +539,22 @@ int main(int argc, char** argv) {
                     }
                 }
             }
-            linear_move(VelPub, 0.1, FORWARD_JUMP_SIZE, -1); //0.1m/s, 0.2m, backward
+            if (view == 1) linear_move(VelPub, 0.1, FORWARD_JUMP_SIZE, -1); //0.1m/s, 0.2m, backward
+            else linear_move(VelPub, 0.1, FORWARD_JUMP_SIZE, -1); //0.1m/s, 0.2m, backward
             view_iter++;
             view = view_iter % 3;
+        }
+        else {
+            ROS_INFO("Plan was successful but failed to arrive, likely because too close to wall. Reversing now");
+            linear_move(VelPub, 0.1, FORWARD_JUMP_SIZE/2, -1); //0.1m/s, 0.2m, backward, get unstuck
         }
         seconds_elapsed = std::chrono::duration_cast<std::chrono::seconds>(std::chrono::system_clock::now()-start).count(); // Count how much time has passed
         loop_rate.sleep();                              // Delay function for 100ms
 
     }
+    std::ofstream file;
+    file.open(result_path);
+    file << "label at location 0: " << results[0] << std::endl << "label at location 1: " << results[1] << std::endl << "label at location 2: " << results[2] << std::endl << "label at location 3: " << results[3] << std::endl << "label at location 4: " << results[4] << std::endl;
+    ROS_INFO("Finished saving results array to text file");
     return 0;
 }
