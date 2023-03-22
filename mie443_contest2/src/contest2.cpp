@@ -228,6 +228,7 @@ int main(int argc, char** argv) {
     int accum = 255;
     int target = 255;
     int label = 255;
+    int labelIter = 0;
     float offset_angle = 0;
     float yaw_adjust = 0;
     float trajectory_x = 0;
@@ -386,9 +387,9 @@ int main(int argc, char** argv) {
                 for (int k=0; k<5; k++)
                 {
                     ros::spinOnce();
-                    label = imagePipeline.getTemplateID(boxes); //int from 0-3
+                    labelIter = imagePipeline.getTemplateID(boxes); //int from 0-3
                     // label = 4;
-                    idArray[k]=label;
+                    idArray[k]=labelIter;
                     loop_rate.sleep();
                 }
 
@@ -397,16 +398,15 @@ int main(int argc, char** argv) {
                 loop_rate.sleep(); 
             }
 
-            int min = idArray[0];
+            int label = idArray[0];
             for (int s=0; s < 5; s++)
             {
-                if (idArray[s] < min)
+                if (idArray[s] < label)
                 {
-                    min = idArray[s];
+                    label = idArray[s];
                 }
             }
 
-            label = min;
             
             ROS_INFO("label: %i at location: %i", label, target);
             visited[target] = 0;
