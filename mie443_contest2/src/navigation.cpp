@@ -24,12 +24,14 @@ bool Navigation::moveToGoal(float xGoal, float yGoal, float phiGoal){
     ROS_INFO("Sending goal location ...");
 	// Send goal and wait for response.
     ac.sendGoal(goal);
-    ac.waitForResult();
+    ac.waitForResult(ros::Duration(10.0)); ///////////////////////////////////////
+    // ros::Duration(10.0)
     if(ac.getState() == actionlib::SimpleClientGoalState::SUCCEEDED){
         ROS_INFO("You have reached the destination");
         return true;
     } else {
         ROS_INFO("The robot failed to reach the destination");
+        ac.cancelGoal();/////////////////////////////////////////////////////////
         return false;
     }
 }

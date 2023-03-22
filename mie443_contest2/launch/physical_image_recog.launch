@@ -3,7 +3,8 @@
     
     <include file="$(find turtlebot_bringup)/launch/minimal.launch" />
 
-    <include file="$(find turtlebot_gazebo)/launch/amcl_demo.launch">
+    <!-- <include file="$(find turtlebot_gazebo)/launch/amcl_demo.launch"> -->
+    <include file="$(find mie443_contest2)/launch/amcl_demo_copy.launch">
         <arg name="map_file" value="/home/thursday/catkin_ws/src/MIE443-Turtlebot-Rover/mie443_contest2/maps/contest_2.yaml"/>
         <!-- VERY IMPORTANT, CHANGE THE LINE ABOVE TO THE NAME OF THE COMPUTER IT IS RUNNING ON -->
     </include>
