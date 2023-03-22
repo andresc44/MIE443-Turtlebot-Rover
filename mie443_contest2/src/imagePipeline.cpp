@@ -184,7 +184,7 @@ int ImagePipeline::getTemplateID(Boxes& boxes) {
         //     template_id = i;
         //     std::cout << template_id << std::endl;
             imshow("Good Matches & Object detection", img_matches );
-            waitKey(300); // waits until a key is pressed
+            waitKey(100); // waits until a key is pressed
         //     break;
         // }
 

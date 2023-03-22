@@ -1,10 +1,14 @@
 // Remember to check: gazebo launch file directory, image topic, which launch file to use, thresholds, and definitions, boxes.cpp file
+// Add 2D pose estimate
 // !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!SET MAX TIMER ON WHILE LOOP TO 300 SECONDS!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-#define MAX_CONTEST_TIME 3000 //change to 300
+#define MAX_CONTEST_TIME 300 //change to 300
 #include <iostream>
 #include <string>
 #include <fstream>
 std::string result_path ("/home/andres/turtlebot-ws/src/MIE443-Turtlebot-Rover/mie443_contest2/src/results.txt");
+
+
+
 // MIE443 CONTEST 2
 // Function variables: variable_name
 // Functions: functionName
@@ -280,7 +284,7 @@ int main(int argc, char** argv) {
     uint8_t loop_iterations = 0;
     int temp_labels[3] = {255, 255, 255};
     int results[5] = {255, 255, 255, 255, 255};           // 0: Raisin Bran, 1: Cinnamon Toast Crunch, 2: Rice Krispies, 3: Blank
-    // int results[5] = {0, 3, 1, 2, 255};           // 0: Raisin Bran, 1: Cinnamon Toast Crunch, 2: Rice Krispies, 3: Blank
+    // int results[5] = {2, 1, 255, 2, 255};           // 0: Raisin Bran, 1: Cinnamon Toast Crunch, 2: Rice Krispies, 3: Blank
     int accum = 255;
     int target = 255;
     int skipper = 0;
@@ -311,7 +315,7 @@ int main(int argc, char** argv) {
 
     
 
-    
+    float dynamic_angle_increment = ANGLE_INCREMENT;
 
     // Execute strategy.
     while(ros::ok() && seconds_elapsed <= MAX_CONTEST_TIME && (!is_back_at_start)) {
@@ -371,13 +375,13 @@ int main(int argc, char** argv) {
                     // ROS_INFO("i = %i", i);
                     is_positive = i % 2;
                     if (is_positive) {                                      // Odd number for i, positive angle offset
-                        offset_angle = ANGLE_INCREMENT * (i + 1)/2;         // Increment of ANGLE_INCREMENT degrees
+                        offset_angle = dynamic_angle_increment * (i + 1)/2;         // Increment of ANGLE_INCREMENT degrees
                         ROS_INFO("Offset_angle: %f", offset_angle);
                         yaw_adjust = (offset_angle * M_PI/180) + cereal_yaw;
                     } 
                     
                     else { //even numbers, include the initial 0 and the sunsequent clockwise locations in negative direction
-                        offset_angle = ANGLE_INCREMENT * i/2;
+                        offset_angle = dynamic_angle_increment * i/2;
                         ROS_INFO("Offset_angle: %f", -offset_angle);
                         yaw_adjust = -(offset_angle * M_PI/180) + cereal_yaw;
                     }
@@ -418,7 +422,7 @@ int main(int argc, char** argv) {
                     move_client.call(srv);
                     // ROS_INFO("srv.response.plan.poses.size: %i", srv.response.plan.poses.size());
                     if (srv.response.plan.poses.size() > 0) {
-                        ROS_INFO("Successful plan found at radius %f, angle: %f, counter-clockwise: %i", radius, offset_angle, is_positive);
+                        ROS_INFO("Successful plan found at radius %f, angle: %f, counter-clockwise: %i, angle_increment: %f", radius, offset_angle, is_positive, dynamic_angle_increment);
                         successful_plan = true;
                         break;
                     }
@@ -451,6 +455,7 @@ int main(int argc, char** argv) {
                 visited[target] = 0;
                 results[target] = getTrueLabel(temp_labels);
                 accum = std::accumulate(visited, visited + 5, accum=0);
+                dynamic_angle_increment = ANGLE_INCREMENT;
                 ROS_INFO("Intermediate results: [%i, %i, %i, %i, %i]", results[0], results[1], results[2], results[3], results[4]);
                 ROS_INFO("Intermediate visited: [%i, %i, %i, %i, %i]", visited[0], visited[1], visited[2], visited[3], visited[4]);
                 ROS_INFO("Locations left to visit: %i", accum);
@@ -509,7 +514,7 @@ int main(int argc, char** argv) {
             // {
             //     if (idArray[s] < label)
             //     {
-            //         label = idArray[s];
+            //         label = idArray[s];  
             //     }
             // }
 
@@ -521,6 +526,7 @@ int main(int argc, char** argv) {
                 label = getTrueLabel(temp_labels);
                 visited[target] = 0;
                 results[target] = label;
+                dynamic_angle_increment = ANGLE_INCREMENT;
                 ROS_INFO("Intermediate results: [%i, %i, %i, %i, %i]", results[0], results[1], results[2], results[3], results[4]);
                 ROS_INFO("Intermediate visited: [%i, %i, %i, %i, %i]", visited[0], visited[1], visited[2], visited[3], visited[4]);
                 accum = std::accumulate(visited, visited + 5, accum=0);
@@ -547,6 +553,7 @@ int main(int argc, char** argv) {
         else {
             ROS_INFO("Plan was successful but failed to arrive, likely because too close to wall. Reversing now");
             linear_move(VelPub, 0.1, FORWARD_JUMP_SIZE/2, -1); //0.1m/s, 0.2m, backward, get unstuck
+            dynamic_angle_increment /= 2;
         }
         seconds_elapsed = std::chrono::duration_cast<std::chrono::seconds>(std::chrono::system_clock::now()-start).count(); // Count how much time has passed
         loop_rate.sleep();                              // Delay function for 100ms
@@ -554,7 +561,7 @@ int main(int argc, char** argv) {
     }
     std::ofstream file;
     file.open(result_path);
-    file << "label at location 0: " << results[0] << std::endl << "label at location 1: " << results[1] << std::endl << "label at location 2: " << results[2] << std::endl << "label at location 3: " << results[3] << std::endl << "label at location 4: " << results[4] << std::endl;
+    file << "Label at location 0: " << results[0] << std::endl << "label at location 1: " << results[1] << std::endl << "label at location 2: " << results[2] << std::endl << "label at location 3: " << results[3] << std::endl << "label at location 4: " << results[4] << std::endl;
     ROS_INFO("Finished saving results array to text file");
     return 0;
 }

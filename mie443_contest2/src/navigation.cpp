@@ -24,7 +24,7 @@ bool Navigation::moveToGoal(float xGoal, float yGoal, float phiGoal){
     ROS_INFO("Sending goal location ...");
 	// Send goal and wait for response.
     ac.sendGoal(goal);
-    ac.waitForResult(ros::Duration(10.0)); ///////////////////////////////////////
+    ac.waitForResult(ros::Duration(25.0)); ///////////////////////////////////////
     // ros::Duration(10.0)
     if(ac.getState() == actionlib::SimpleClientGoalState::SUCCEEDED){
         ROS_INFO("You have reached the destination");
