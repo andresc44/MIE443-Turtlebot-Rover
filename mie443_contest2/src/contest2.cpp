@@ -1,8 +1,6 @@
 // Remember to check: gazebo launch file directory, image topic, which launch file to use, thresholds, and definitions, boxes.cpp file
 
 
-
-
 // MIE443 CONTEST 2
 // Function variables: variable_name
 // Functions: functionName
@@ -41,13 +39,14 @@
 
 //!!!!!!CONSTANTS!!!!!!!!!!!!!!!!!!!!!
 #define LOOP_RATE 10                                // Rate for while loops that dictate callback and publish frequency (Hz)
-#define VISION_RADIUS 0.5     //Try to bump to 40                      // The distance from the centre of the turtlebot to the front of the cereal box when parked and scanning
-#define ANGLE_INCREMENT 10 //to be changed                          // Degrees by which to increase in search for optimal goal destination from the centre
-#define MAX_ANGLE 60       //to be changed                         // Max possible angle to deviate from centre optimal spot
+#define STARTING_VISION_RADIUS 0.3     //Try to bump to 40   // The distance from the centre of the turtlebot to the front of the cereal box when parked and scanning
+#define MAX_VISION_RADIUS 0.7
+#define RADIUS_JUMP 0.05
+#define ANGLE_INCREMENT 10 //to be changed          // Degrees by which to increase in search for optimal goal destination from the centre
+#define MAX_ANGLE 60       //to be changed          // Max possible angle to deviate from centre optimal spot
 #define CAMERA_LIMIT 10                             // Seconds to be stuck trying to read an image
 #define ARRIVAL_DELAY 1                             // Time to wait before starting to try to scan camera [s]
 #define GOAL_TOLERANCE 0.03                         // Tolerance for goal destination when trying to make plan (x, and y)
-
 // !!!!!!!!!!!!USER-DEFINED FUNCTION!!!!!!!!!!
 
 
@@ -287,62 +286,68 @@ int main(int argc, char** argv) {
             int i = 0;
             offset_angle = 0;
             successful_plan = false;
-            while (offset_angle <= MAX_ANGLE) {
-                // ROS_INFO("i = %i", i);
-                is_positive = i % 2;
-                if (is_positive) {                                      // Odd number for i, positive angle offset
-                    offset_angle = ANGLE_INCREMENT * (i + 1)/2;         // Increment of ANGLE_INCREMENT degrees
-                    ROS_INFO("Offset_angle: %f", offset_angle);
-                    yaw_adjust = (offset_angle * M_PI/180) + cereal_yaw;
-                } 
-                
-                else { //even numbers, include the initial 0 and the sunsequent clockwise locations in negative driection
-                    offset_angle = ANGLE_INCREMENT * i/2;
-                    ROS_INFO("Offset_angle: %f", -offset_angle);
-                    yaw_adjust = -(offset_angle * M_PI/180) + cereal_yaw;
+
+            // Looping different STARTING_VISION_RADIUS values. If successful plan, exit loop
+            for (int radius = STARTING_VISION_RADIUS; radius <= MAX_VISION_RADIUS; radius += RADIUS_JUMP) { // Try at different radius values
+
+                while (offset_angle <= MAX_ANGLE) {
+                    // ROS_INFO("i = %i", i);
+                    is_positive = i % 2;
+                    if (is_positive) {                                      // Odd number for i, positive angle offset
+                        offset_angle = ANGLE_INCREMENT * (i + 1)/2;         // Increment of ANGLE_INCREMENT degrees
+                        ROS_INFO("Offset_angle: %f", offset_angle);
+                        yaw_adjust = (offset_angle * M_PI/180) + cereal_yaw;
+                    } 
+                    
+                    else { //even numbers, include the initial 0 and the sunsequent clockwise locations in negative direction
+                        offset_angle = ANGLE_INCREMENT * i/2;
+                        ROS_INFO("Offset_angle: %f", -offset_angle);
+                        yaw_adjust = -(offset_angle * M_PI/180) + cereal_yaw;
+                    }
+
+                    // ROS_INFO("yaw_adjust radians: %f, degrees: %f", yaw_adjust, yaw_adjust*180/M_PI);
+                    trajectory_x = radius*cosf(yaw_adjust) + cereal_x;
+                    trajectory_y = radius*sinf(yaw_adjust) + cereal_y;
+                    trajectory_phi = (yaw_adjust + M_PI); //!!!!!!!Check what the bounds of this need to be
+                    // ROS_INFO("trajectory x: %f, trajectory y: %f, Trajectory_phi: %f", trajectory_x, trajectory_y, trajectory_phi);
+                    // // try to make plan with trajectory_x, trajectory_y, trajectory_phi, if so, break loop
+                    target_pose.header.stamp = ros::Time::now();
+                    target_pose.header.frame_id = "map";
+                    target_pose.pose.position.x = trajectory_x; // index coordinates file;
+                    target_pose.pose.position.y = trajectory_y; // index coordinates file;
+
+                    q = tf::createQuaternionMsgFromYaw(trajectory_phi);
+                    target_pose.pose.orientation.x = 0.0;
+                    target_pose.pose.orientation.y = 0.0;
+                    target_pose.pose.orientation.z = q.z;
+                    target_pose.pose.orientation.w = q.w;
+                    // ROS_INFO("q.z: %f, q.w: %f", q.z, q.w);
+
+                    start_pose.header.stamp = ros::Time::now();
+                    start_pose.pose.position.x = robot_pose.x; // index coordinates file;
+                    start_pose.pose.position.y = robot_pose.y; // index coordinates file;
+
+                    q = tf::createQuaternionMsgFromYaw(robot_pose.phi);
+                    start_pose.pose.orientation.x = 0.0;
+                    start_pose.pose.orientation.y = 0.0;
+                    start_pose.pose.orientation.z = q.z;
+                    start_pose.pose.orientation.w = q.w;
+
+                    srv.request.start  = start_pose;
+                    srv.request.goal = target_pose;
+                    srv.request.tolerance = GOAL_TOLERANCE;                   // Tolerance of destination goal in [m]
+
+
+                    move_client.call(srv);
+                    // ROS_INFO("srv.response.plan.poses.size: %i", srv.response.plan.poses.size());
+                    if (srv.response.plan.poses.size() > 0) {
+                        ROS_INFO("Successful plan found at %f, counter-clockwise: %i", offset_angle, is_positive);
+                        successful_plan = true;
+                        break;
+                    }
+                    i++;
                 }
-
-                // ROS_INFO("yaw_adjust radians: %f, degrees: %f", yaw_adjust, yaw_adjust*180/M_PI);
-                trajectory_x = VISION_RADIUS*cosf(yaw_adjust) + cereal_x;
-                trajectory_y = VISION_RADIUS*sinf(yaw_adjust) + cereal_y;
-                trajectory_phi = (yaw_adjust + M_PI); //!!!!!!!Check what the bounds of this need to be
-                // ROS_INFO("trajectory x: %f, trajectory y: %f, Trajectory_phi: %f", trajectory_x, trajectory_y, trajectory_phi);
-                // // try to make plan with trajectory_x, trajectory_y, trajectory_phi, if so, break loop
-                target_pose.header.stamp = ros::Time::now();
-                target_pose.header.frame_id = "map";
-                target_pose.pose.position.x = trajectory_x; // index coordinates file;
-                target_pose.pose.position.y = trajectory_y; // index coordinates file;
-
-                q = tf::createQuaternionMsgFromYaw(trajectory_phi);
-                target_pose.pose.orientation.x = 0.0;
-                target_pose.pose.orientation.y = 0.0;
-                target_pose.pose.orientation.z = q.z;
-                target_pose.pose.orientation.w = q.w;
-                // ROS_INFO("q.z: %f, q.w: %f", q.z, q.w);
-
-                start_pose.header.stamp = ros::Time::now();
-                start_pose.pose.position.x = robot_pose.x; // index coordinates file;
-                start_pose.pose.position.y = robot_pose.y; // index coordinates file;
-
-                q = tf::createQuaternionMsgFromYaw(robot_pose.phi);
-                start_pose.pose.orientation.x = 0.0;
-                start_pose.pose.orientation.y = 0.0;
-                start_pose.pose.orientation.z = q.z;
-                start_pose.pose.orientation.w = q.w;
-
-                srv.request.start  = start_pose;
-                srv.request.goal = target_pose;
-                srv.request.tolerance = GOAL_TOLERANCE;                   // Tolerance of destination goal in [m]
-
-
-                move_client.call(srv);
-                // ROS_INFO("srv.response.plan.poses.size: %i", srv.response.plan.poses.size());
-                if (srv.response.plan.poses.size() > 0) {
-                    ROS_INFO("Successful plan found at %f, counter-clockwise: %i", offset_angle, is_positive);
-                    successful_plan = true;
-                    break;
-                }
-                i++;
+                if (successful_plan) break;
             }
         }
         else { // All labels at locations are known
