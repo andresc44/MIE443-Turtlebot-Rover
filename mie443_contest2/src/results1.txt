@@ -1,0 +1,11 @@
+Label at location 0: 255
+label at location 1: 255
+label at location 2: 255
+label at location 3: 0
+label at location 4: 255
+
+LEGEND
+0: Raisin Bran
+1: Cinnamon Toast Crunch
+2: Rice Krispies
+3: Blank

@@ -5,7 +5,7 @@
 #include <iostream>
 #include <string>
 #include <fstream>
-std::string result_path ("/home/thursday/catkin_ws/src/MIE443-Turtlebot-Rover/mie443_contest2/src/results1.txt");
+std::string result_path ("/home/thursday/catkin_ws/src/MIE443-Turtlebot-Rover/mie443_contest2/src/results2.txt");
 
 
 
@@ -227,6 +227,64 @@ int getTrueLabel(int labels_views[3]) {
     
     return true_label;
 }
+
+int finalFill(int results_array[5]){
+    int unvisited_idx = -1;
+    int missing_id = -1;
+    bool cases[4] = {0,0,0,0};
+    int repeat = checkRepeat(results_array);
+    int cnt = 0;
+    
+    for (int i = 0; i<5; i++){
+    		if (results_array[i] == -1){
+        		cnt += 1;
+        }
+    }
+    if (cnt > 2){
+        return 0;
+    }
+	for (int n = 0; n<cnt; n++){
+        for (int i = 0; i<5; i++){
+            if (results_array[i] == 0){ // matches with raisin
+                // ROS_INFO("There is Raisin");
+                cases[0] = 1;
+            }
+            else if (results_array[i] == 1){ // matches with cinnamon
+                cases[1] = 1;
+                // ROS_INFO("There is Cinnamon");
+            }
+            else if (results_array[i] == 2){ // matches with rice
+                cases[2] = 1;
+                // ROS_INFO("There is Rice");
+            }
+            else if (results_array[i] ==3){ // matches with blank
+                cases[3] = 1;
+                // ROS_INFO("There is blank");
+            }
+            else{ // no match then it's unvisited = 55
+                unvisited_idx = i;
+                // ROS_INFO("Unvisited Index: %i", unvisited_idx);
+            }
+        		
+            if (repeat == 0){
+    							results_array[unvisited_idx] = 1; // double cinnamon
+   					}
+    				else{
+        					for (int i = 0; i<4; i++){
+           	 // std::cout << "Case: " << i << "is " << cases[i] << std::endl;
+           						 if (cases[i] == false){
+                // ROS_INFO("Case is false");
+                missing_id = i;
+                    	 }
+                 }
+            }
+        }
+    }
+
+   
+    // ROS_INFO("Missing Id: %i", missing_id);
+}
+
 
 
 
@@ -542,13 +600,45 @@ int main(int argc, char** argv) {
         }
         else {
             ROS_INFO("Plan was successful but failed to arrive, likely because too close to wall. Reversing now");
-            linearMove(VelPub, 0.1, FORWARD_JUMP_SIZE/2, -1); //0.1m/s, 0.2m, backward, get unstuck
-            dynamic_angle_increment /= 2;
+            // linearMove(VelPub, 0.1, FORWARD_JUMP_SIZE/2, -1); //0.1m/s, 0.2m, backward, get unstuck
+            // dynamic_angle_increment /= 2;
+            temp_labels[view] = -1;
+            if (view == 2) {
+
+                visited[target] = 0;
+                results[target] = getTrueLabel(temp_labels);
+                accum = std::accumulate(visited, visited + 5, accum=0);
+                dynamic_angle_increment = ANGLE_INCREMENT;
+                ROS_INFO("Intermediate results: [%i, %i, %i, %i, %i]", results[0], results[1], results[2], results[3], results[4]);
+                ROS_INFO("Intermediate visited: [%i, %i, %i, %i, %i]", visited[0], visited[1], visited[2], visited[3], visited[4]);
+                ROS_INFO("Locations left to visit: %i", accum);
+                if (accum == 1) {
+                    if (checkRepeat(results)) { //input is visited array, output is boolean
+                    // if (true) { //input is visited array, output is boolean
+                        ROS_INFO("There are repeated labels, can skip the last destination");
+                        std::tie(missing_id, missing_label) = fillResults(results); // Input is results array, output is results array
+                        results[missing_id] = missing_label; 
+                        ROS_INFO("Filled in results: [%i, %i, %i, %i, %i]", results[0], results[1], results[2], results[3], results[4]);
+                        accum = 0;
+                    }
+                    else {
+                        ROS_INFO("There are no repeats, or results contains error value/non-deterministic [-1, 3, 4]");
+                    }
+                }
+                
+            }
+            view_iter++;
+            view = view_iter % 3;
+            continue;
         }
         seconds_elapsed = std::chrono::duration_cast<std::chrono::seconds>(std::chrono::system_clock::now()-start).count(); // Count how much time has passed
         loop_rate.sleep();                              // Delay function for 100ms
 
     }
+
+    ROS_INFO("Filled in results: [%i, %i, %i, %i, %i]", results[0], results[1], results[2], results[3], results[4]);
+    finalFill(results); // Input is results array, output is results array
+    ROS_INFO("Filled in results: [%i, %i, %i, %i, %i]", results[0], results[1], results[2], results[3], results[4]);
     std::ofstream file;
     file.open(result_path);
     file << "Label at location 0: " << results[0] << std::endl << "label at location 1: " << results[1] << std::endl << "label at location 2: " << results[2] << std::endl << "label at location 3: " << results[3] << std::endl << "label at location 4: " << results[4] << std::endl;
