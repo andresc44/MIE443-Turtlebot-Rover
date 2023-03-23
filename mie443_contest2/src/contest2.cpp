@@ -134,16 +134,6 @@ int getNearestNeighbour(RobotPose robot_pose, std::vector<std::vector<float>> bo
 }
 
 
-// In case std::accumulate doesn't work...
-int sum(int array[5]){
-    int sum = 0;
-    for(int i = 0; i <5; i++){
-        sum += array[i];
-    }
-    return sum;
-}
-
-
 int checkRepeat(int results_array[5]){
     for (int i = 0; i<5; i++){
         for (int n = i+1; n <5; n++){
@@ -197,7 +187,7 @@ std::tuple<int, int> fillResults(int results_array[5]){
 
 // !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
                                       // Create message for velocities as Twist type
-int linear_move(ros::Publisher VelPub, float linear_vel, float distance, int direction)
+int linearMove(ros::Publisher VelPub, float linear_vel, float distance, int direction)
 {
     // if (linear_vel == float(FORWARD_FAST_V)) ROS_INFO("forward fast!");
     // else if (linear_vel == float(FORWARD_SLOW_V)) ROS_INFO("forward slow");
@@ -481,8 +471,8 @@ int main(int argc, char** argv) {
 
         if((arrived_at_target) && (!is_back_at_start)) {
             // ros::Duration(ARRIVAL_DELAY).sleep();               // Small pause to account for momentum shift
-            if (view == 1) linear_move(VelPub, 0.1, FORWARD_JUMP_SIZE, 1); //0.1m/s, 0.2m, forward
-            else linear_move(VelPub, 0.1, FORWARD_JUMP_SIZE/2, 1); //0.1m/s, 0.2m, forward
+            if (view == 1) linearMove(VelPub, 0.1, FORWARD_JUMP_SIZE, 1); //0.1m/s, 0.2m, forward
+            else linearMove(VelPub, 0.1, FORWARD_JUMP_SIZE/2, 1); //0.1m/s, 0.2m, forward
             // ros::spinOnce();
             ros::Duration(ARRIVAL_DELAY).sleep();
             camera_start = std::chrono::system_clock::now();
@@ -545,14 +535,14 @@ int main(int argc, char** argv) {
                     }
                 }
             }
-            if (view == 1) linear_move(VelPub, 0.1, FORWARD_JUMP_SIZE, -1); //0.1m/s, 0.2m, backward
-            else linear_move(VelPub, 0.1, FORWARD_JUMP_SIZE, -1); //0.1m/s, 0.2m, backward
+            if (view == 1) linearMove(VelPub, 0.1, FORWARD_JUMP_SIZE, -1); //0.1m/s, 0.2m, backward
+            else linearMove(VelPub, 0.1, FORWARD_JUMP_SIZE, -1); //0.1m/s, 0.2m, backward
             view_iter++;
             view = view_iter % 3;
         }
         else {
             ROS_INFO("Plan was successful but failed to arrive, likely because too close to wall. Reversing now");
-            linear_move(VelPub, 0.1, FORWARD_JUMP_SIZE/2, -1); //0.1m/s, 0.2m, backward, get unstuck
+            linearMove(VelPub, 0.1, FORWARD_JUMP_SIZE/2, -1); //0.1m/s, 0.2m, backward, get unstuck
             dynamic_angle_increment /= 2;
         }
         seconds_elapsed = std::chrono::duration_cast<std::chrono::seconds>(std::chrono::system_clock::now()-start).count(); // Count how much time has passed
@@ -562,6 +552,7 @@ int main(int argc, char** argv) {
     std::ofstream file;
     file.open(result_path);
     file << "Label at location 0: " << results[0] << std::endl << "label at location 1: " << results[1] << std::endl << "label at location 2: " << results[2] << std::endl << "label at location 3: " << results[3] << std::endl << "label at location 4: " << results[4] << std::endl;
+    file << std::endl << "LEGEND" << std::endl << "0: Raisin Bran" << std::endl << "1: Cinnamon Toast Crunch" << std::endl << "2: Rice Krispies" << std::endl << "3: Blank" << std::endl;
     ROS_INFO("Finished saving results array to text file");
     return 0;
 }
