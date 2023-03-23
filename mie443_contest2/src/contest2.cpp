@@ -5,7 +5,7 @@
 #include <iostream>
 #include <string>
 #include <fstream>
-std::string result_path ("/home/andres/turtlebot-ws/src/MIE443-Turtlebot-Rover/mie443_contest2/src/results.txt");
+std::string result_path ("/home/thursday/catkin_ws/src/MIE443-Turtlebot-Rover/mie443_contest2/src/results1.txt");
 
 
 
