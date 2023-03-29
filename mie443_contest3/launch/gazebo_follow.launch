@@ -1,0 +1,13 @@
+<!-- Launch turtlebot world, launch amcl with known map, and start rviz -->
+<launch>
+    
+    <include file="$(find turtlebot_gazebo)/launch/turtlebot_world.launch"/>
+    <node name="soundplay_node" pkg="sound_play" type="soundplay_node.py"/>
+    
+</launch>
+
+
+
+<!-- roslaunch turtlebot_gazebo turtlebot_world.launch
+rosrun sound_play soundplay_node.py
+rosrun mie443_contest3 contest3 -->
