@@ -1,5 +1,0 @@
-Label at location 0: 2
-label at location 1: 1
-label at location 2: 3
-label at location 3: 2
-label at location 4: 0

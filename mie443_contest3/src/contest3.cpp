@@ -2,11 +2,14 @@
 #include <ros/package.h>
 #include <imageTransporter.hpp>
 #include <chrono>
+//#include "led_manager/LedAnim.h"
 
 using namespace std;
 
 geometry_msgs::Twist follow_cmd;
 int world_state;
+
+bool state1 = true;
 
 void followerCB(const geometry_msgs::Twist msg){
     follow_cmd = msg;
@@ -28,6 +31,7 @@ int main(int argc, char **argv)
 
 	//publishers
 	ros::Publisher vel_pub = nh.advertise<geometry_msgs::Twist>("cmd_vel_mux/input/teleop",1);
+  	//ros::ServiceClient led_client = nh.serviceClient<led_manager::LedAnim>("led_anim");
 
 	//subscribers
 	ros::Subscriber follower = nh.subscribe("follower_velocity_smoother/smooth_cmd_vel", 10, &followerCB);
@@ -58,17 +62,45 @@ int main(int argc, char **argv)
 	while(ros::ok() && secondsElapsed <= 480){		
 		ros::spinOnce();
 
+		while (state1){
+			ros::spinOnce();
+			if (follow_cmd.linear.x != 0){ //used this since it is alredy being published and subscribed (can be changed to sensor output)
+				world_state = 3;
+				state1 = false;
+			}
+		}
+
 		if(world_state == 0){
 			//fill with your code
 			//vel_pub.publish(vel);
 			vel_pub.publish(follow_cmd);
-
-		}else if(world_state == 1){
-			/*
-			...
-			...
-			*/
 		}
+		
+		else if(world_state == 3){ //state 3 --> show excitement
+
+			// Move TurtleBot in circles for 10 seconds
+			vel.angular.z = 1.0;
+			for (int i=0; i < 10; i++){ 
+				vel_pub.publish(vel);
+				ros::Duration(1.0).sleep();
+			}
+			
+			// Play happy/exciting song for 3 seconds
+			sc.playWave(path_to_sounds + "sound.wav"); //add happy/exciting sound and modify the name
+			ros::Duration(3).sleep();
+
+			// // Blink the LEDs in different colors
+  			// led_manager::LedAnim led_anim;
+  			// led_anim.request.name = "blink";
+  			// led_anim.request.color.r = 255;
+  			// led_anim.request.color.g = 0;
+  			// led_anim.request.color.b = 0;
+  			// led_anim.request.frequency = 5;
+  			// led_anim.request.duration = 5.0;
+  			// led_client.call(led_anim);
+
+		}
+		
 		secondsElapsed = std::chrono::duration_cast<std::chrono::seconds>(std::chrono::system_clock::now()-start).count();
 		loop_rate.sleep();
 	}
