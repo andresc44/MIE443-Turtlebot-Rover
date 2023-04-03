@@ -5,6 +5,12 @@
 
 using namespace std;
 
+
+#define TURNING_V 0.6;
+
+
+
+
 geometry_msgs::Twist follow_cmd;
 int world_state;
 
@@ -15,6 +21,36 @@ void followerCB(const geometry_msgs::Twist msg){
 void bumperCB(const geometry_msgs::Twist msg){
     //Fill with code
 }
+
+
+
+
+
+
+void rotate(ros::Publisher VelPub, int angle_rot){                  // Called with input as an angle in degree
+    ROS_INFO("rotating by: %i",angle_rot);
+
+   int dir = sign(angle_rot);
+//    ROS_INFO("direction: %i", dir);
+   float angle_rad = DEG2RAD(dir*angle_rot);                        // Function takes in an angle in degrees, converts it to rad
+   float turning_time = angle_rad/TURNING_V;                        // Calculates the time needed to turn based on constant turning speed, and the angle
+       
+   std::chrono::time_point<std::chrono::system_clock> start;        // Initialize timer
+   start = std::chrono::system_clock::now();                        // Start new timer at current time
+   uint64_t seconds_elapsed = 0;                                    // New variable for time that has passed
+    
+   ros::Rate loop_rate(100);
+   Vel.linear.x = 0;
+   Vel.angular.z = dir * TURNING_V;                                 // Set turning speed  
+//    ROS_INFO("direction: %f", dir*TURNING_V);
+    while (ros::ok() && seconds_elapsed <= turning_time) {          // Turn until the turning time needed to complete the angle is passed   
+        VelPub.publish(Vel);                                        // Start turning
+        loop_rate.sleep();
+        seconds_elapsed = std::chrono::duration_cast<std::chrono::seconds>(std::chrono::system_clock::now()-start).count(); //count how much time has passed
+    }
+}
+
+
 
 //-------------------------------------------------------------
 
@@ -63,7 +99,7 @@ int main(int argc, char **argv)
 			//vel_pub.publish(vel);
 			vel_pub.publish(follow_cmd);
 
-		}else if(world_state == 1){
+		}else if(world_state == 2){ //sad
 			/*
 			...
 			...
