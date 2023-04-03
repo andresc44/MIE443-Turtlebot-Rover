@@ -27,7 +27,7 @@ void bumperCB(const geometry_msgs::Twist msg){
 
 
 
-void rotate(ros::Publisher VelPub, int angle_rot){                  // Called with input as an angle in degree
+void rotate(ros::Publisher vel_pub, int angle_rot){                  // Called with input as an angle in degree
     ROS_INFO("rotating by: %i",angle_rot);
 
    int dir = sign(angle_rot);
@@ -44,7 +44,7 @@ void rotate(ros::Publisher VelPub, int angle_rot){                  // Called wi
    Vel.angular.z = dir * TURNING_V;                                 // Set turning speed  
 //    ROS_INFO("direction: %f", dir*TURNING_V);
     while (ros::ok() && seconds_elapsed <= turning_time) {          // Turn until the turning time needed to complete the angle is passed   
-        VelPub.publish(Vel);                                        // Start turning
+        vel_pub.publish(Vel);                                        // Start turning
         loop_rate.sleep();
         seconds_elapsed = std::chrono::duration_cast<std::chrono::seconds>(std::chrono::system_clock::now()-start).count(); //count how much time has passed
     }
@@ -100,10 +100,21 @@ int main(int argc, char **argv)
 			vel_pub.publish(follow_cmd);
 
 		}else if(world_state == 2){ //sad
-			/*
-			...
-			...
-			*/
+			
+			
+			sc.playWave(path_to_sounds + "sound.wav"); //starts playing crying noises
+			
+			rotate(vel_pub, -45); //rotate back an fourth while crying 
+			//delay()
+			rotate(vel_pub,45);
+			//delay()
+			rotate(vel_pub,-45);
+			//delay()
+			rotate(vel_pub, 45);
+			//delay
+			sc.stopPlayingWave(); //stops the sound
+			
+				
 		}
 		secondsElapsed = std::chrono::duration_cast<std::chrono::seconds>(std::chrono::system_clock::now()-start).count();
 		loop_rate.sleep();
@@ -111,3 +122,9 @@ int main(int argc, char **argv)
 
 	return 0;
 }
+
+
+///CODE TO ACTIVATE STATE 2
+
+
+
