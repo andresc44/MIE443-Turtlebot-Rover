@@ -7,7 +7,8 @@ using namespace std;
 
 
 #define TURNING_V 0.6;
-
+#define BACKWARD_V -0.1  
+                        
 
 
 
@@ -20,7 +21,25 @@ void followerCB(const geometry_msgs::Twist msg){
 
 void bumperCB(const geometry_msgs::Twist msg){
     //Fill with code
+	
+    // Access using bumper[kobuki_msgs::BumperEvent::{}] LEFT, CENTER, or RIGHT
+    Bumper[msg->bumper] = msg->state;                           // Assigns bumper array to match message based on msg message
+    AnyBumperPressed = false;
+    for (uint8_t i = 0; i < N_BUMPER; i++){
+        if (Bumper[i] == kobuki_msgs::BumperEvent::PRESSED){
+            // bumper[0] = leftState, bumper[1] = centerState, bumper[2] = rightState
+            AnyBumperPressed = true;
+            
+        }
+
+        
+    }
+
+    if (AnyBumperPressed) {
+	    world_state = 2;
+    }
 }
+	
 
 
 
@@ -99,9 +118,25 @@ int main(int argc, char **argv)
 			//vel_pub.publish(vel);
 			vel_pub.publish(follow_cmd);
 
+			
+			
 		}else if(world_state == 2){ //sad
 			
 			
+			///first reverse clear of the obstacle
+			Vel.linear.x = BACKWARD_V;                                      // Set linear to Twist
+			Vel.angular.z = 0;
+    			uint64_t seconds_elapsed = 0;                                   // New variable for time that has passed    
+   			Backward_time = 0.5/abs(BACKWARD_V);   //0.5 m backwards
+    			start = std::chrono::system_clock::now();                       // Start new timer at current time
+
+    			while (ros::ok() && seconds_elapsed <= Backward_time) {            // Kobuki diameter is 0.3515m, we want to travel half (3.5s x 0.05m/s) 
+        			VelPub.publish(Vel);                                        // Publish cmd_vel to teleop mux input
+        			loop_rate.sleep();
+        			seconds_elapsed = std::chrono::duration_cast<std::chrono::seconds>(std::chrono::system_clock::now()-start).count(); // Count how much time has passed
+        			//ROS_INFO("seconds_elapsed:%i,backward_T:%f",seconds_elapsed,BACKWARD_T);
+    			}
+			//////start being sad
 			sc.playWave(path_to_sounds + "sound.wav"); //starts playing crying noises
 			
 			rotate(vel_pub, -45); //rotate back an fourth while crying 
@@ -123,8 +158,6 @@ int main(int argc, char **argv)
 	return 0;
 }
 
-
-///CODE TO ACTIVATE STATE 2
 
 
 
