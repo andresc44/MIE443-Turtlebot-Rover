@@ -3,6 +3,8 @@
 #include <imageTransporter.hpp>
 #include <chrono>
 
+#include <opencv2/highgui.hpp> ///required to display image// if doesnt work try #include <opencv2/opencv.hpp>
+
 using namespace std;
 
 
@@ -137,7 +139,9 @@ int main(int argc, char **argv)
         			//ROS_INFO("seconds_elapsed:%i,backward_T:%f",seconds_elapsed,BACKWARD_T);
     			}
 			//////start being sad
-			sc.playWave(path_to_sounds + "sound.wav"); //starts playing crying noises
+			sc.playWave(path_to_sounds + "sound.wav"); //starts playing crying noises, need to add sound file
+			cv::imshow("image", image); // to show the image, need to add image file
+			cvWaitKey(0); //shows image indefinetly (until key press) might be necessary to keep image on screen until window is closed with (cv::destroyAllWindows();)
 			
 			rotate(vel_pub, -45); //rotate back an fourth while crying 
 			//delay()
@@ -148,7 +152,7 @@ int main(int argc, char **argv)
 			rotate(vel_pub, 45);
 			//delay
 			sc.stopPlayingWave(); //stops the sound
-			
+			cv::destroyAllWindows(); // stops showing all cv windows (images). Alternatively can specify window name - cv::destroyWindow(windowName)
 				
 		}
 		secondsElapsed = std::chrono::duration_cast<std::chrono::seconds>(std::chrono::system_clock::now()-start).count();
