@@ -140,7 +140,10 @@ int main(int argc, char **argv)
     			}
 			//////start being sad
 			sc.playWave(path_to_sounds + "sound.wav"); //starts playing crying noises, need to add sound file
-			cv::imshow("image", image); // to show the image, need to add image file
+			
+			cv::Mat image = cv::imread("example.png", cv::IMREAD_UNCHANGED); //need image name // reads the image and stores it in variable 'image' to be used in cv::imshow
+    
+			cv::imshow("image", image); // to show the image
 			cvWaitKey(0); //shows image indefinetly (until key press) might be necessary to keep image on screen until window is closed with (cv::destroyAllWindows();)
 			
 			rotate(vel_pub, -45); //rotate back an fourth while crying 
