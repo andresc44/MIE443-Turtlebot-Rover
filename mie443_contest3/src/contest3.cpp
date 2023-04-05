@@ -17,16 +17,17 @@ void bumperCB(const geometry_msgs::Twist msg){
 }
 
 // ----------- Fear Function --------------
-void fearMode(ros::Publisher vel_pub, ros::Subscriber ) {
+void fearMode(ros::Publisher vel_pub) {
 	int fear_vel = 0.3;
 	int fear_rev_vel = -0.1;
 	int fear_forward_time = 1;
 	int rev_cnt = 0;
 	ros::Rate loop_rate(LOOP_RATE);
 	std::chrono::time_point<std::chrono::system_clock> start;
-	uint64_t seconds_elapsed = 0;                                    
+	uint64_t seconds_elapsed = 0;                 
+	bool following_human = false;                 
 
-	while (ros::ok() && !AnyBumperPressed && ){	
+	while (ros::ok() && !AnyBumperPressed && !following_human){	
 		// spin around 
 		rotate(180);
 		rotate(180);
@@ -66,7 +67,7 @@ void fearMode(ros::Publisher vel_pub, ros::Subscriber ) {
 			seconds_elapsed = std::chrono::duration_cast<std::chrono::seconds>(std::chrono::system_clock::now()-start).count(); 
 			rev_cnt += 1;
 		}	
-
+		if ((follow_cmd.linear.x != 0) || (follow_cmd.angular.z != 0)) following_human = true; 
 	}
 }
 
