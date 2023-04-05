@@ -14,6 +14,8 @@ using namespace std;
 #define RAGE_VEL 0.5
 #define RAGE_TURN 0.4
 #define REVERSE_TIME 8
+#define BACKWARD_T 0.5
+#define FEAR_TIME 10
 
 sound_play::SoundClient sc;
 geometry_msgs::Twist follow_cmd;
@@ -30,6 +32,7 @@ int WorldState;
 void followerCB(const geometry_msgs::Twist msg){ 	//Andres
     follow_cmd = msg;
 	FollowerInReverse = false;
+	MovingForward = true;
 	if (msg.linear.x < -0.1) FollowerInReverse = true;
 	if (msg.linear.x > 0.1) MovingForward = true;
 }
@@ -69,69 +72,9 @@ void rotate(ros::Publisher vel_pub, int angle_rot){                  // Called w
 }
 ////////////////////////////////////////////////////////////
 
-// COPIED FROM CONTEST 1, likely will be deleted //////////////////////////////////////////////////////////////////////////////////////
-uint8_t PressedBumper[3]={0,0,0};               // 3 bit array of bumper status
-
-void bumperCallback(const kobuki_msgs::BumperEvent::ConstPtr& msg)
-{
-    // Access using bumper[kobuki_msgs::BumperEvent::{}] LEFT, CENTER, or RIGHT
-    Bumper[msg->bumper] = msg->state;                           // Assigns bumper array to match message based on msg message
-    AnyBumperPressed = false;
-    for (uint8_t i = 0; i < N_BUMPER; i++){
-        if (Bumper[i] == kobuki_msgs::BumperEvent::PRESSED){
-            // bumper[0] = leftState, bumper[1] = centerState, bumper[2] = rightState
-            AnyBumperPressed = true;
-            PressedBumper[i] = 1;
-        }
-        else PressedBumper[i] =0;
-    }
-    if (AnyBumperPressed) reverse(VelPub);
+int sign(float number) {
+    return (number>0)? 1: -1;                               // Positive -> 1, otherwise -1
 }
-
-void reverse(ros::Publisher VelPub) {                               // Called if any bumper pressed
-    ROS_INFO("Object hit, reversing");
-    ros::Rate loop_rate(LOOP_RATE);
-    std::chrono::time_point<std::chrono::system_clock> start;       // Initialize timer
-
-    Vel.linear.x = BACKWARD_V;                                      // Set linear to Twist
-    Vel.angular.z = 0;
-    uint64_t seconds_elapsed = 0;                                   // New variable for time that has passed    
-    int angle = 0;
-
-    start = std::chrono::system_clock::now();                       // Start new timer at current time
-
-    while (ros::ok() && seconds_elapsed <= BACKWARD_T) {            // Kobuki diameter is 0.3515m, we want to travel half (3.5s x 0.05m/s) 
-        VelPub.publish(Vel);                                        // Publish cmd_vel to teleop mux input
-        loop_rate.sleep();
-        seconds_elapsed = std::chrono::duration_cast<std::chrono::seconds>(std::chrono::system_clock::now()-start).count(); // Count how much time has passed
-        //ROS_INFO("seconds_elapsed:%i,backward_T:%f",seconds_elapsed,BACKWARD_T);
-    }
-    
-    if (arrayEqual(PressedBumper,LState)) angle = -45;            // Left bumper, rotate right (right is neg)
-    
-    else if (arrayEqual(PressedBumper, LMState)) angle = -90;      // Left and middle pressed only
-
-    else if (arrayEqual(PressedBumper,RState)) angle = 45;        // Right pressed only, rotate left (pos)
-
-    else if (arrayEqual(PressedBumper,RMState)) angle = 90;       // Right and middle pressed only, rotate left
-
-    else if (arrayEqual(PressedBumper,MState)) {                  // Middle pressed only
-        // Rotate random angle
-        int array_angles[2] = {90, -90};                            // Array of random angles
-        int rand_num = rand() % 2;                                  // Random number from 0 to 1
-        angle = array_angles[rand_num];                             // Index the array angles using random number, to rotate either left or right 90 degrees
-    }
-
-    else if  (arrayEqual(PressedBumper,LMRState) || arrayEqual(PressedBumper,LRState)) { // All pressed or left and right pressed
-       // Rotate random angle
-        int array_angles[2] = {135, -135};                          // Array of random angles
-        int rand_num = rand() % 2;                                  // Random number from 0 to 1
-        angle = array_angles[rand_num];                             // Index the array angles using random number, to rotate either left or right 135 degrees 
-    }
-   
-    rotate(VelPub, angle);                                          // Rotate function
-}
-////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 void fearMode (ros::Publisher vel_pub) {
 	bool placeholder_for_Maggies_code = true;
@@ -208,36 +151,48 @@ void rageMode(ros::Publisher vel_pub) {
     uint64_t seconds_elapsed = 0;                                    // Variable for time that has passed
 
 
-    while (ros::ok()  && !AnyBumperPressed) {
+    while (ros::ok()  && !AnyBumperPressed) {						// Move forward until it hits feet
         vel_pub.publish(Vel);
         ros::spinOnce();                                            // Listen to all subscriptions once
-        if (AnyBumperPressed) {
-            break;
-        }
         loop_rate.sleep();
     }
 	// "get out of my way"
 	sc.playWave(path_to_sounds + "sound.wav"); //Move/get out, consider putting in bumper callback
-	ros::Duration(0.5).sleep();
+
+	ROS_INFO("Foot hit, reversing");
+
+    Vel.linear.x = BACKWARD_V;                                      // Set linear to Twist
+    Vel.angular.z = 0;
+    seconds_elapsed = 0;                                   // New variable for time that has passed    
+    int angle = 0;
+
+    start = std::chrono::system_clock::now();                       // Start new timer at current time
+	// Move back a little
+    while (ros::ok() && seconds_elapsed <= BACKWARD_T) {            // Kobuki diameter is 0.3515m, we want to travel half (3.5s x 0.05m/s) 
+        vel_pub.publish(Vel);                                        // Publish cmd_vel to teleop mux input
+        loop_rate.sleep();
+        seconds_elapsed = std::chrono::duration_cast<std::chrono::seconds>(std::chrono::system_clock::now()-start).count(); // Count how much time has passed
+        //ROS_INFO("seconds_elapsed:%i,backward_T:%f",seconds_elapsed,BACKWARD_T);
+    }
+	// Turn right
+    rotate(VelPub, -90); 
 
 	Vel.angular.z = 0.0;
     Vel.linear.x = RAGE_VEL;
     seconds_elapsed = 0;                                    // Variable for time that has passed
-	float time_forward = abs(FORWARD_DIST/RAGE_VEL);
+	time_forward = abs(FORWARD_DIST/RAGE_VEL);
 
     start = std::chrono::system_clock::now();                       // Start the timer
 	ros::spinOnce();
 
-    while (ros::ok() && seconds_elapsed <= time_forward && !AnyBumperPressed) { //Move forward
+    while (ros::ok() && seconds_elapsed <= time_forward && !AnyBumperPressed) { //Move forward a few steps
         vel_pub.publish(Vel);
         ros::spinOnce();                                            // Listen to all subscriptions once
-        // if (AnyBumperPressed) {
-        //     break;
-        // }
         loop_rate.sleep();
         seconds_elapsed = std::chrono::duration_cast<std::chrono::seconds>(std::chrono::system_clock::now()-start).count(); //count how much time has passed
     }
 
+	sc.playWave(path_to_sounds + "sound.wav"); //Rooooooaaaarrrr
 	Vel.angular.z = RAGE_TURN;
     Vel.linear.x = 0.0;
     seconds_elapsed = 0;                                    			// Variable for time that has passed
@@ -246,16 +201,12 @@ void rageMode(ros::Publisher vel_pub) {
     start = std::chrono::system_clock::now();                       // Start the timer
 	ros::spinOnce();
 
-    while (ros::ok() && seconds_elapsed <= time_turning && !AnyBumperPressed) { // Move forward some more
+    while (ros::ok() && seconds_elapsed <= time_turning) { // Spin for 3 seconds
         vel_pub.publish(Vel);
         ros::spinOnce();                                            // Listen to all subscriptions once
-        // if (AnyBumperPressed) {
-        //     break;
-        // }
         loop_rate.sleep();
         seconds_elapsed = std::chrono::duration_cast<std::chrono::seconds>(std::chrono::system_clock::now()-start).count(); //count how much time has passed
     }
-	ros::Duration(2.0).sleep();
 }
 
 
@@ -282,7 +233,6 @@ int main(int argc, char **argv)
     std::chrono::time_point<std::chrono::system_clock> start;
 	std::chrono::time_point<std::chrono::system_clock> reverse_start;
     std::chrono::time_point<std::chrono::system_clock> fear_start;
-	std::chrono::time_point<std::chrono::system_clock> buffer_start;
 
 
 	imageTransporter rgbTransport("camera/image/", sensor_msgs::image_encodings::BGR8); //--for Webcam
@@ -300,7 +250,6 @@ int main(int argc, char **argv)
 	WorldState = 0;
     uint64_t seconds_elapsed = 0;
 	uint64_t time_in_reverse = 0;
-	uint64_t time_in_buffer = 0;
 	uint64_t time_alone = 0;
 	uint8_t last_state = 0;
 	bool is_alone = false;
@@ -311,7 +260,6 @@ int main(int argc, char **argv)
 
 	while(ros::ok() && seconds_elapsed <= 480){		
 		ros::spinOnce();
-		if (buffer_start) time_in_buffer = std::chrono::duration_cast<std::chrono::seconds>(std::chrono::system_clock::now()-buffer_start).count();
 		if (reverse_start) time_in_reverse = std::chrono::duration_cast<std::chrono::seconds>(std::chrono::system_clock::now()-reverse_start).count();
 		if (fear_start) time_alone = std::chrono::duration_cast<std::chrono::seconds>(std::chrono::system_clock::now()-fear_start).count();
 		
@@ -319,17 +267,20 @@ int main(int argc, char **argv)
 
 		if (!is_alone && !following_human){
 			fear_start = std::chrono::system_clock::now();
+			time_alone = std::chrono::duration_cast<std::chrono::seconds>(std::chrono::system_clock::now()-fear_start).count();
 			is_alone = true;
 		}
+		else if (following_human) is_alone = false;
 
 		if (!is_reversing && FollowerInReverse){
 			reverse_start = std::chrono::system_clock::now();
+			time_in_reverse = std::chrono::duration_cast<std::chrono::seconds>(std::chrono::system_clock::now()-reverse_start).count();
 			is_reversing = true;
 		}
-		else if (MovingForward) reverse_start = std::chrono::system_clock::now();
+		else if (MovingForward) is_reversing = false;
 
 		// Fear Mode Conditions
-		if ((is_alone) && (time_in_buffer > BUFFER_TIME) && (time_alone > FEAR_TIME) && (last_state != 3)) WorldState = 1;
+		if ((is_alone) && (time_alone > FEAR_TIME) && (last_state != 3)) WorldState = 1;
 
 		// Sad Mode Conditions
 		else if (AnyBumperPressed) WorldState = 2;
@@ -338,33 +289,32 @@ int main(int argc, char **argv)
 		else if ((following_human) && (last_state == 1)) WorldState = 3;
 
 		// Rage Mode Conditions
-		else if (FollowerInReverse && (time_in_reverse > REVERSE_TIME)) WorldState = 4;
+		else if (is_reversing && (time_in_reverse > REVERSE_TIME)) WorldState = 4;
+
+		else WorldState = 0;
 
 		switch (WorldState) {
 			case 0:
 				neutralMode(VelPub); //idk play music or show images or something
-				is_alone = true;
 				break;
 			case 1: 
 				fearMode(VelPub);
 				last_state = 1;
+				is_alone = false;
 				break;
 			case 2:
 				sadMode(VelPub);
 				buffer_start = std::chrono::system_clock::now();
 				last_state = 2;
-				is_alone = true;
 				break;
 			case 3:
 				excitedMode(VelPub);
 				buffer_start = std::chrono::system_clock::now();
-				is_alone = true;
 				last_state = 3;
 				break;
 			case 4:
 				rageMode(VelPub);
 				buffer_start = std::chrono::system_clock::now();
-				is_alone = true;
 				is_reversing = false;
 				last_state = 4;
 				break;
@@ -373,6 +323,7 @@ int main(int argc, char **argv)
 		seconds_elapsed = std::chrono::duration_cast<std::chrono::seconds>(std::chrono::system_clock::now()-start).count();
 		loop_rate.sleep();
 	}
+	//Play "I'm a Believer" and flash the lights
 
 	return 0;
 }
