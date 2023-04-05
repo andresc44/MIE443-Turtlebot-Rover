@@ -24,7 +24,8 @@ geometry_msgs::Twist follow_cmd;
 geometry_msgs::Twist Vel;							// Create message for velocities as Twist type
 ros::Publisher VelPub;
 
-std::string path_to_sounds ("path to strings goes here");
+// std::string path_to_sounds ("/home/thursday/catkin_ws/src/MIE443-Turtlebot-Rover/mie443_contest3/sounds");
+string path_to_sounds = ros::package::getPath("mie443_contest3") + "/sounds/";
 uint8_t Bumper[3] = {kobuki_msgs::BumperEvent::RELEASED, kobuki_msgs::BumperEvent::RELEASED, kobuki_msgs::BumperEvent::RELEASED};
 bool AnyBumperPressed = false;                  // Reset variable to false
 bool FollowerInReverse = false;
@@ -83,9 +84,78 @@ void neutralMode(ros::Publisher vel_pub) {
 	bool placeholder_for_natural_state = true;
 }
 
-void fearMode (ros::Publisher vel_pub) {
-	bool placeholder_for_Maggies_code = true;
-	// need some sort of break to stop erratic behaviour, after seeing a person from ros spinOnce();
+void fearMode(ros::Publisher vel_pub) {
+	float fear_vel = 0.3;
+	float fear_rev_vel = -0.1;
+	int fear_forward_time = 1;
+	int rev_cnt = 0;
+	ros::Rate loop_rate(LOOP_RATE);
+	std::chrono::time_point<std::chrono::system_clock> start;
+	uint64_t seconds_elapsed = 0;                 
+	bool following_human = false;   
+
+	Vel.angular.z = 0.0;
+    Vel.linear.x = 0.0;              
+
+	while (ros::ok() && !AnyBumperPressed && !following_human){	
+		// spin around 
+		Vel.linear.x = 0.0;
+		Vel.angular.z = 1.0;
+		vel_pub.publish(Vel);
+		rotate(vel_pub, 180);
+		rotate(vel_pub, 180);
+
+		// go forwards
+		start = std::chrono::system_clock::now();
+		while (ros::ok() && seconds_elapsed<=fear_forward_time){
+			Vel.linear.x = fear_vel;
+			vel_pub.publish(Vel);
+			loop_rate.sleep();
+			seconds_elapsed = std::chrono::duration_cast<std::chrono::seconds>(std::chrono::system_clock::now()-start).count(); 
+		}			
+
+		// turn slgihtly and go forwards
+		Vel.linear.x = 0.0;
+		Vel.angular.z = 1.0;
+		vel_pub.publish(Vel);
+		rotate(vel_pub, 30);
+		start = std::chrono::system_clock::now();
+		while (ros::ok() && seconds_elapsed<=0.5){
+			Vel.linear.x = fear_vel;
+			vel_pub.publish(Vel);
+			loop_rate.sleep();
+			seconds_elapsed = std::chrono::duration_cast<std::chrono::seconds>(std::chrono::system_clock::now()-start).count(); 
+		}	
+		
+		// turn slightly in other direction and go forwards	
+		Vel.linear.x = 0.0;
+		Vel.angular.z = 1.0;
+		vel_pub.publish(Vel);
+		rotate(vel_pub, -60);
+		start = std::chrono::system_clock::now();
+		while (ros::ok() && seconds_elapsed<=0.5){
+			Vel.linear.x = fear_vel;
+			vel_pub.publish(Vel);
+			loop_rate.sleep();
+			seconds_elapsed = std::chrono::duration_cast<std::chrono::seconds>(std::chrono::system_clock::now()-start).count(); 
+		}	
+
+		// slowly go backwards and express fear sound
+		Vel.linear.x = 0.0;
+		Vel.angular.z = 0.2;
+		vel_pub.publish(Vel);
+		rotate(vel_pub, 30);
+		start = std::chrono::system_clock::now();
+		while (ros::ok() && seconds_elapsed<=0.5 && rev_cnt == 3){
+			Vel.linear.x = fear_rev_vel;
+			vel_pub.publish(Vel);
+			loop_rate.sleep();
+			seconds_elapsed = std::chrono::duration_cast<std::chrono::seconds>(std::chrono::system_clock::now()-start).count(); 
+			rev_cnt += 1;
+		}	
+		
+		if ((follow_cmd.linear.x != 0) || (follow_cmd.angular.z != 0)) following_human = true; 
+	}
 }
 
 void sadMode(ros::Publisher vel_pub) {
@@ -225,8 +295,8 @@ int main(int argc, char **argv)
 {
 	ros::init(argc, argv, "emotional_follower");
 	ros::NodeHandle nh;
-	
-	string path_to_sounds = ros::package::getPath("mie443_contest3") + "/sounds/";
+	ROS_INFO("node handle");
+	// string path_to_sounds = ros::package::getPath("mie443_contest3") + "/sounds/";
 	teleController eStop;
 
 	//publishers
