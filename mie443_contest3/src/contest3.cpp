@@ -19,13 +19,13 @@ using namespace std;
 #define FEAR_TIME 10
 #define DEG2RAD(deg) ((deg) * M_PI / 180.)      // Inverse conversion function
 
-sound_play::SoundClient sc;
+// sound_play::SoundClient sc;
 geometry_msgs::Twist follow_cmd;
 geometry_msgs::Twist Vel;							// Create message for velocities as Twist type
 ros::Publisher VelPub;
 
 // std::string path_to_sounds ("/home/thursday/catkin_ws/src/MIE443-Turtlebot-Rover/mie443_contest3/sounds");
-string path_to_sounds = ros::package::getPath("mie443_contest3") + "/sounds/";
+
 uint8_t Bumper[3] = {kobuki_msgs::BumperEvent::RELEASED, kobuki_msgs::BumperEvent::RELEASED, kobuki_msgs::BumperEvent::RELEASED};
 bool AnyBumperPressed = false;                  // Reset variable to false
 bool FollowerInReverse = false;
@@ -174,7 +174,7 @@ void sadMode(ros::Publisher vel_pub) {
 		//ROS_INFO("seconds_elapsed:%i,backward_T:%f",seconds_elapsed,BACKWARD_T);
 	}
 	//////start being sad
-	sc.playWave(path_to_sounds + "sound.wav"); //starts playing crying noises
+	// sc.playWave(path_to_sounds + "sound.wav"); //starts playing crying noises
 	
 	rotate(vel_pub, -45); //rotate back an fourth while crying 
 	//delay()
@@ -197,7 +197,7 @@ void excitedMode(ros::Publisher vel_pub) {
 	}
 	
 	// Play happy/exciting song for 3 seconds
-	sc.playWave(path_to_sounds + "sound.wav"); //add happy/exciting sound and modify the name
+	// sc.playWave(path_to_sounds + "sound.wav"); //add happy/exciting sound and modify the name
 	ros::Duration(3).sleep();
 
 	// // Blink the LEDs in different colors
@@ -219,7 +219,7 @@ void rageMode(ros::Publisher vel_pub) {
 	// Make noises
 	// Turn screen red 
 
-	sc.playWave(path_to_sounds + "sound.wav"); //Get out of me swamp
+	// sc.playWave(path_to_sounds + "sound.wav"); //Get out of me swamp
 	ros::Duration(0.5).sleep();
 
 	ros::Rate loop_rate(LOOP_RATE);
@@ -236,7 +236,7 @@ void rageMode(ros::Publisher vel_pub) {
         loop_rate.sleep();
     }
 	// "get out of my way"
-	sc.playWave(path_to_sounds + "sound.wav"); //Move/get out, consider putting in bumper callback
+	// sc.playWave(path_to_sounds + "sound.wav"); //Move/get out, consider putting in bumper callback
 
 	ROS_INFO("Foot hit, reversing");
 
@@ -271,7 +271,7 @@ void rageMode(ros::Publisher vel_pub) {
         seconds_elapsed = std::chrono::duration_cast<std::chrono::seconds>(std::chrono::system_clock::now()-start).count(); //count how much time has passed
     }
 
-	sc.playWave(path_to_sounds + "sound.wav"); //Rooooooaaaarrrr
+	// sc.playWave(path_to_sounds + "sound.wav"); //Rooooooaaaarrrr
 	Vel.angular.z = RAGE_TURN;
     Vel.linear.x = 0.0;
     seconds_elapsed = 0;                                    			// Variable for time that has passed
@@ -296,6 +296,8 @@ int main(int argc, char **argv)
 	ros::init(argc, argv, "emotional_follower");
 	ros::NodeHandle nh;
 	ROS_INFO("node handle");
+	sound_play::SoundClient sc;
+	string path_to_sounds = ros::package::getPath("mie443_contest3") + "/sounds/";
 	// string path_to_sounds = ros::package::getPath("mie443_contest3") + "/sounds/";
 	teleController eStop;
 
@@ -339,19 +341,20 @@ int main(int argc, char **argv)
 
 	while(ros::ok() && seconds_elapsed <= 480){		
 		ros::spinOnce();
+		ROS_INFO("in loop");
 
-// try {
-//         if(isValid) {
-//             img.release(); //previous image is released from memory 
-//         }
-//         img = (cv_bridge::toCvShare(msg, IMAGE_TYPE)->image).clone();
-//         isValid = true;
-//     } catch (cv_bridge::Exception& e) {
-//         std::cout << "ERROR: Could not convert from " << msg->encoding.c_str()
-//                   << " to " << IMAGE_TYPE.c_str() << "!" << std::endl;
-//         isValid = false;
-//     }    
-// }
+// // try {
+// //         if(isValid) {
+// //             img.release(); //previous image is released from memory 
+// //         }
+// //         img = (cv_bridge::toCvShare(msg, IMAGE_TYPE)->image).clone();
+// //         isValid = true;
+// //     } catch (cv_bridge::Exception& e) {
+// //         std::cout << "ERROR: Could not convert from " << msg->encoding.c_str()
+// //                   << " to " << IMAGE_TYPE.c_str() << "!" << std::endl;
+// //         isValid = false;
+// //     }    
+// // }
 
 
 		time_in_reverse = std::chrono::duration_cast<std::chrono::seconds>(std::chrono::system_clock::now()-reverse_start).count();
