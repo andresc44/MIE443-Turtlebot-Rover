@@ -43,7 +43,7 @@ void fearMode(ros::Publisher vel_pub) {
 		while (ros::ok() && seconds_elapsed<=fear_forward_time){
 			Vel.linear.x = fear_val;
 			vel_pub.publish(Vel);
-			loop_rate.sleep()
+			loop_rate.sleep();
 			seconds_elapsed = std::chrono::duration_cast<std::chrono::seconds>(std::chrono::system_clock::now()-start).count(); 
 		}			
 
@@ -56,7 +56,7 @@ void fearMode(ros::Publisher vel_pub) {
 		while (ros::ok() && seconds_elapsed<=0.5){
 			Vel.linear.x = fear_val;
 			vel_pub.publish(Vel);
-			loop_rate.sleep()
+			loop_rate.sleep();
 			seconds_elapsed = std::chrono::duration_cast<std::chrono::seconds>(std::chrono::system_clock::now()-start).count(); 
 		}	
 		
@@ -69,7 +69,7 @@ void fearMode(ros::Publisher vel_pub) {
 		while (ros::ok() && seconds_elapsed<=0.5){
 			Vel.linear.x = fear_val;
 			vel_pub.publish(Vel);
-			loop_rate.sleep()
+			loop_rate.sleep();
 			seconds_elapsed = std::chrono::duration_cast<std::chrono::seconds>(std::chrono::system_clock::now()-start).count(); 
 		}	
 
@@ -82,7 +82,7 @@ void fearMode(ros::Publisher vel_pub) {
 		while (ros::ok() && seconds_elapsed<=0.5 && rev_cnt =3){
 			Vel.linear.x = fear_rev_vel;
 			vel_pub.publish(Vel);
-			loop_rate.sleep()
+			loop_rate.sleep();
 			seconds_elapsed = std::chrono::duration_cast<std::chrono::seconds>(std::chrono::system_clock::now()-start).count(); 
 			rev_cnt += 1;
 		}	
