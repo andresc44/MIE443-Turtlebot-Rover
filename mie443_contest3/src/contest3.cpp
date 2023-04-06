@@ -67,19 +67,30 @@ int main(int argc, char **argv)
 	cv::Mat excited_image = cv::imread("/home/selin/catkin_ws/src/MIE443-Turtlebot-Rover/mie443_contest3/images/Excited.png",cv::IMREAD_UNCHANGED);
 	cv::Mat fear_image = cv::imread("/home/selin/catkin_ws/src/MIE443-Turtlebot-Rover/mie443_contest3/images/Fear.png",cv::IMREAD_UNCHANGED);
 	cv::Mat rage_image = cv::imread("/home/selin/catkin_ws/src/MIE443-Turtlebot-Rover/mie443_contest3/images/Rage.png",cv::IMREAD_UNCHANGED);
+	cv::Mat neutral_image = cv::imread("/home/selin/catkin_ws/src/MIE443-Turtlebot-Rover/mie443_contest3/images/Neutral.png",cv::IMREAD_UNCHANGED);
 
-	double scaleFactor = 10;
+	double scaleFactor = 1.25;
 
 	cv::resize(sad_image, sad_image, cv::Size(sad_image.cols*scaleFactor, sad_image.rows*scaleFactor), cv::INTER_LINEAR);
 	cv::resize(excited_image, excited_image, cv::Size(excited_image.cols*scaleFactor, excited_image.rows*scaleFactor), cv::INTER_LINEAR);
 	cv::resize(fear_image, fear_image, cv::Size(fear_image.cols*scaleFactor, fear_image.rows*scaleFactor), cv::INTER_LINEAR);
 	cv::resize(rage_image, rage_image, cv::Size(rage_image.cols*scaleFactor, rage_image.rows*scaleFactor), cv::INTER_LINEAR);
+	cv::resize(neutral_image, neutral_image, cv::Size(neutral_image.cols*scaleFactor, neutral_image.rows*scaleFactor), cv::INTER_LINEAR);
 
 	while(ros::ok() && secondsElapsed <= 480){		
 		ros::spinOnce();
 
 		//To do for images: 1)make all png 2)make all same size 3)include opencv libraries 4)create images folder
 		
+		//neutral
+		cv::imshow("view", neutral_image);
+		ros::Time start_time0 = ros::Time::now(); // Get the current time
+		while ((ros::Time::now() - start_time0).toSec() < 5.0) { // Wait for 5 seconds
+			cv::waitKey(1); // Wait for 1 millisecond for a key event
+		}
+		cv::destroyAllWindows();
+		ros::Duration(2.0).sleep();		
+
 		//sad
 		cv::imshow("view", sad_image);
 		ros::Time start_time1 = ros::Time::now(); // Get the current time
