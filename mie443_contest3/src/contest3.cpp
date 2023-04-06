@@ -41,21 +41,8 @@ bool FollowingHuman = true;
 int WorldState;
 
 
-// creating the image files for emotions
-cv::Mat sad_image = cv::imread("/home/thurs/catkin_ws/src/MIE443-Turtlebot-Rover/mie443_contest3/images/Sad.png",cv::IMREAD_UNCHANGED);
-cv::Mat excited_image = cv::imread("/home/thurs/catkin_ws/src/MIE443-Turtlebot-Rover/mie443_contest3/images/Excited.png",cv::IMREAD_UNCHANGED);
-cv::Mat fear_image = cv::imread("/home/thurs/catkin_ws/src/MIE443-Turtlebot-Rover/mie443_contest3/images/Fear.png",cv::IMREAD_UNCHANGED);
-cv::Mat rage_image = cv::imread("/home/thurs/catkin_ws/src/MIE443-Turtlebot-Rover/mie443_contest3/images/Rage.png",cv::IMREAD_UNCHANGED);
-cv::Mat neutral_image = cv::imread("/home/thurs/catkin_ws/src/MIE443-Turtlebot-Rover/mie443_contest3/images/Neutral.png",cv::IMREAD_UNCHANGED);
 
-double scaleFactor = 1.25;
 
-cv::resize(sad_image, sad_image, cv::Size(sad_image.cols*scaleFactor, sad_image.rows*scaleFactor), cv::INTER_LINEAR);
-cv::resize(excited_image, excited_image, cv::Size(excited_image.cols*scaleFactor, excited_image.rows*scaleFactor), cv::INTER_LINEAR);
-cv::resize(fear_image, fear_image, cv::Size(fear_image.cols*scaleFactor, fear_image.rows*scaleFactor), cv::INTER_LINEAR);
-cv::resize(rage_image, rage_image, cv::Size(rage_image.cols*scaleFactor, rage_image.rows*scaleFactor), cv::INTER_LINEAR);
-cv::resize(neutral_image, neutral_image, cv::Size(neutral_image.cols*scaleFactor, neutral_image.rows*scaleFactor), cv::INTER_LINEAR);
-	
 int sign(float number) {
     return (number>0)? 1: -1;                               // Positive -> 1, otherwise -1
 }
@@ -374,6 +361,21 @@ int main(int argc, char **argv)
 	std::chrono::time_point<std::chrono::system_clock> reverse_start;
     std::chrono::time_point<std::chrono::system_clock> fear_start;
 
+	// creating the image files for emotions
+	cv::Mat sad_image = cv::imread("/home/thursday/catkin_ws/src/MIE443-Turtlebot-Rover/mie443_contest3/images/Sad.png",cv::IMREAD_UNCHANGED);
+	cv::Mat excited_image = cv::imread("/home/thursday/catkin_ws/src/MIE443-Turtlebot-Rover/mie443_contest3/images/Excited.png",cv::IMREAD_UNCHANGED);
+	cv::Mat fear_image = cv::imread("/home/thursday/catkin_ws/src/MIE443-Turtlebot-Rover/mie443_contest3/images/Fear.png",cv::IMREAD_UNCHANGED);
+	cv::Mat rage_image = cv::imread("/home/thursday/catkin_ws/src/MIE443-Turtlebot-Rover/mie443_contest3/images/Rage.png",cv::IMREAD_UNCHANGED);
+	cv::Mat neutral_image = cv::imread("/home/thursday/catkin_ws/src/MIE443-Turtlebot-Rover/mie443_contest3/images/Neutral.png",cv::IMREAD_UNCHANGED);
+
+	double scaleFactor = 1.25;
+
+	cv::resize(sad_image, sad_image, cv::Size(sad_image.cols*scaleFactor, sad_image.rows*scaleFactor), cv::INTER_LINEAR);
+	cv::resize(excited_image, excited_image, cv::Size(excited_image.cols*scaleFactor, excited_image.rows*scaleFactor), cv::INTER_LINEAR);
+	cv::resize(fear_image, fear_image, cv::Size(fear_image.cols*scaleFactor, fear_image.rows*scaleFactor), cv::INTER_LINEAR);
+	cv::resize(rage_image, rage_image, cv::Size(rage_image.cols*scaleFactor, rage_image.rows*scaleFactor), cv::INTER_LINEAR);
+	cv::resize(neutral_image, neutral_image, cv::Size(neutral_image.cols*scaleFactor, neutral_image.rows*scaleFactor), cv::INTER_LINEAR);
+
 
 	imageTransporter rgbTransport("camera/image/", sensor_msgs::image_encodings::BGR8); //--for Webcam
 	//imageTransporter rgbTransport("camera/rgb/image_raw", sensor_msgs::image_encodings::BGR8); //--for turtlebot Camera
@@ -458,9 +460,10 @@ int main(int argc, char **argv)
 				ROS_INFO("Following Human as normal");
 				break;
 			case 1:
-				sc.playWave(path_to_sounds + "fear.wav");
+				sc.playWave(path_to_sounds + "sound.wav");
 				cv::destroyAllWindows();
 				cv::imshow("view", fear_image);
+				cv::waitKey(1);
 				ROS_INFO("Entering fear mode");
 				fearMode(VelPub);
 				ROS_INFO("Broke fear mode");
@@ -468,33 +471,39 @@ int main(int argc, char **argv)
 				is_alone = false;
 				cv::destroyAllWindows();
 				cv::imshow("view", neutral_image);
+				cv::waitKey(1);
 				break;
 			case 2:
-				sc.playWave(path_to_sounds + "sad.wav");
+				sc.playWave(path_to_sounds + "sound.wav");
 				cv::destroyAllWindows();
 				cv::imshow("view", sad_image);
+				cv::waitKey(1);
 				ROS_INFO("Hit something, entering sad mode");
 				sadMode(VelPub);
 				ROS_INFO("Broke sad mode");
 				last_state = 2;
 				cv::destroyAllWindows();
 				cv::imshow("view", neutral_image);
+				cv::waitKey(1);
 				break;
 			case 3:
-				sc.playWave(path_to_sounds + "excited.wav");
+				sc.playWave(path_to_sounds + "sound.wav");
 				cv::destroyAllWindows();
 				cv::imshow("view", excited_image);
+				cv::waitKey(1);
 				ROS_INFO("Found my person, getting excited");
 				excitedMode(VelPub);
 				ROS_INFO("Breaking excited mode");
 				last_state = 3;
 				cv::destroyAllWindows();
 				cv::imshow("view", neutral_image);
+				cv::waitKey(1);
 				break;
 			case 4:
-				sc.playWave(path_to_sounds + "rage.wav");
+				sc.playWave(path_to_sounds + "sound.wav");
 				cv::destroyAllWindows();
 				cv::imshow("view", rage_image);
+				cv::waitKey(1);
 				ROS_INFO("Got intimidated, getting angry");
 				rageMode(VelPub);
 				ROS_INFO("Breaking rage mode");
@@ -502,6 +511,7 @@ int main(int argc, char **argv)
 				last_state = 4;
 				cv::destroyAllWindows();
 				cv::imshow("view", neutral_image);
+				cv::waitKey(1);
 				break;
 		}
 
