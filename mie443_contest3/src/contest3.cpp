@@ -3,6 +3,7 @@
 #include <imageTransporter.hpp>
 #include <chrono>
 #include <kobuki_msgs/BumperEvent.h>
+#include <visualization_msgs/Marker.h>
 
 //#include "led_manager/LedAnim.h" // Selin
 
@@ -16,7 +17,7 @@ using namespace std;
 #define RAGE_TURN 0.4
 #define REVERSE_TIME 8
 #define BACKWARD_T 0.5
-#define FEAR_TIME 10
+#define FEAR_TIME 2.5
 #define DEG2RAD(deg) ((deg) * M_PI / 180.)      // Inverse conversion function
 
 // sound_play::SoundClient sc;
@@ -31,13 +32,23 @@ bool AnyBumperPressed = false;                  // Reset variable to false
 bool FollowerInReverse = false;
 bool MovingForward = true;
 
+bool FollowingHuman = true;
+
 int WorldState;
 
 int sign(float number) {
     return (number>0)? 1: -1;                               // Positive -> 1, otherwise -1
 }
+void personCB (const visualization_msgs::Marker msg) {
+	float person_x = msg.pose.position.x;
+	float person_y = msg.pose.position.y;
+	float person_z = msg.pose.position.z;
+	ROS_INFO("Person x: %f, Person y: %f, Person z: %f", person_x, person_y, person_z);
+	if ((person_x != 0) && (person_y != 0)) FollowingHuman = true;
+	else FollowingHuman = false;
+}
 
-void followerCB(const geometry_msgs::Twist msg){ 	//Andres
+void followerCB(const geometry_msgs::Twist msg){ 	// Andres
     follow_cmd = msg;
 	FollowerInReverse = false;
 	MovingForward = true;
@@ -82,6 +93,7 @@ void rotate(ros::Publisher vel_pub, int angle_rot){                  // Called w
 
 void neutralMode(ros::Publisher vel_pub) {
 	bool placeholder_for_natural_state = true;
+	vel_pub.publish(follow_cmd);
 	ROS_INFO("Being Neutral");
 }
 
@@ -93,15 +105,15 @@ void fearMode(ros::Publisher vel_pub) {
 	ros::Rate loop_rate(LOOP_RATE);
 	std::chrono::time_point<std::chrono::system_clock> start;
 	uint64_t seconds_elapsed = 0;                 
-	bool following_human = false;   
+	bool FollowingHuman = false;   
 
 	Vel.angular.z = 0.0;
     Vel.linear.x = 0.0;              
 
-	while (ros::ok() && !AnyBumperPressed && !following_human){	
+	while (ros::ok() && !AnyBumperPressed && !FollowingHuman){	
 		// spin around 
 		Vel.linear.x = 0.0;
-		Vel.angular.z = 1.0;
+		Vel.angular.z = 0.5;
 		vel_pub.publish(Vel);
 		rotate(vel_pub, 180);
 		rotate(vel_pub, 180);
@@ -109,39 +121,45 @@ void fearMode(ros::Publisher vel_pub) {
 		// go forwards
 		start = std::chrono::system_clock::now();
 		ROS_INFO("Fear Forward");
-		while (ros::ok() && seconds_elapsed<=fear_forward_time){
+		while (ros::ok() && seconds_elapsed<=fear_forward_time && !FollowingHuman){
 			Vel.linear.x = fear_vel;
+			Vel.angular.z = 0.0;
 			vel_pub.publish(Vel);
 			loop_rate.sleep();
 			seconds_elapsed = std::chrono::duration_cast<std::chrono::seconds>(std::chrono::system_clock::now()-start).count(); 
+			ros::spinOnce();
 		}			
 
 		// turn slgihtly and go forwards
 		Vel.linear.x = 0.0;
-		Vel.angular.z = 1.0;
+		Vel.angular.z = 0.5;
 		vel_pub.publish(Vel);
 		rotate(vel_pub, 30);
 		start = std::chrono::system_clock::now();
 		ROS_INFO("Turn slightly and forward");
-		while (ros::ok() && seconds_elapsed<=0.5){
+		while (ros::ok() && seconds_elapsed<=0.5 && !FollowingHuman){
 			Vel.linear.x = fear_vel;
+			Vel.angular.z = 0.0;
 			vel_pub.publish(Vel);
 			loop_rate.sleep();
 			seconds_elapsed = std::chrono::duration_cast<std::chrono::seconds>(std::chrono::system_clock::now()-start).count(); 
+			ros::spinOnce();
 		}	
 		
 		// turn slightly in other direction and go forwards	
 		Vel.linear.x = 0.0;
-		Vel.angular.z = 1.0;
+		Vel.angular.z = 0.5;
 		vel_pub.publish(Vel);
 		rotate(vel_pub, -60);
 		start = std::chrono::system_clock::now();
 		ROS_INFO("Turn slightly other dir. and forward");
-		while (ros::ok() && seconds_elapsed<=0.5){
+		while (ros::ok() && seconds_elapsed<=0.5 && !FollowingHuman){
 			Vel.linear.x = fear_vel;
+			Vel.angular.z = 0.0;
 			vel_pub.publish(Vel);
 			loop_rate.sleep();
 			seconds_elapsed = std::chrono::duration_cast<std::chrono::seconds>(std::chrono::system_clock::now()-start).count(); 
+			ros::spinOnce();
 		}	
 
 		// slowly go backwards and express fear sound
@@ -151,15 +169,15 @@ void fearMode(ros::Publisher vel_pub) {
 		rotate(vel_pub, 30);
 		start = std::chrono::system_clock::now();
 		ROS_INFO("backwards and noise");
-		while (ros::ok() && seconds_elapsed<=0.5 && rev_cnt == 3){
+		while (ros::ok() && seconds_elapsed<=0.5 && rev_cnt == 3 && !FollowingHuman){
 			Vel.linear.x = fear_rev_vel;
+			Vel.angular.z = 0.0;
 			vel_pub.publish(Vel);
 			loop_rate.sleep();
 			seconds_elapsed = std::chrono::duration_cast<std::chrono::seconds>(std::chrono::system_clock::now()-start).count(); 
 			rev_cnt += 1;
+			ros::spinOnce();
 		}	
-		
-		if ((follow_cmd.linear.x != 0) || (follow_cmd.angular.z != 0)) following_human = true; 
 	}
 }
 
@@ -314,6 +332,7 @@ int main(int argc, char **argv)
 	//subscribers
 	ros::Subscriber follower = nh.subscribe("follower_velocity_smoother/smooth_cmd_vel", 10, &followerCB);
 	ros::Subscriber bumper = nh.subscribe("mobile_base/events/bumper", 10, &bumperCB);
+	ros::Subscriber person = nh.subscribe("turtlebot_follower/marker", 10, &personCB);
 
     // contest count down timer
 	ros::Rate loop_rate(10);
@@ -332,6 +351,8 @@ int main(int argc, char **argv)
 	// sc.playWave(path_to_sounds + "sound.wav");
 	
 	start = std::chrono::system_clock::now();
+	reverse_start = start;
+	fear_start = start;
 	// buffer_start = std::chrono::system_clock::now(); May cause issues
 	// reverse_start = std::chrono::system_clock::now();
 	WorldState = 0;
@@ -341,13 +362,15 @@ int main(int argc, char **argv)
 	uint8_t last_state = 0;
 	bool is_alone = false;
 	bool is_reversing = false;
-	bool following_human = false;
 	ros::spinOnce();
 	ros::Duration(0.5).sleep();
 	ROS_INFO("Entering while loop");
 	while(ros::ok() && seconds_elapsed <= 480){		
 		ros::spinOnce();
-		ROS_INFO("AnyBumperPressed: %i, MovingForward: %i, FollowerInReverse: %i", AnyBumperPressed, MovingForward, FollowerInReverse);
+		
+		// if ((PersonX != 0) && (PersonY != 0)) FollowingHuman = true;
+		// else FollowingHuman = false;
+		ROS_INFO("FollowingHuman: %i, AnyBumperPressed: %i, MovingForward: %i, FollowerInReverse: %i", FollowingHuman, AnyBumperPressed, MovingForward, FollowerInReverse);
 
 // // try {
 // //         if(isValid) {
@@ -366,14 +389,13 @@ int main(int argc, char **argv)
 		time_in_reverse = std::chrono::duration_cast<std::chrono::seconds>(std::chrono::system_clock::now()-reverse_start).count();
 		time_alone = std::chrono::duration_cast<std::chrono::seconds>(std::chrono::system_clock::now()-fear_start).count();
 		
-		if ((follow_cmd.linear.x != 0) || (follow_cmd.angular.z != 0)) following_human = true;
 
-		if (!is_alone && !following_human){
+		if (!is_alone && !FollowingHuman){
 			fear_start = std::chrono::system_clock::now();
 			time_alone = std::chrono::duration_cast<std::chrono::seconds>(std::chrono::system_clock::now()-fear_start).count();
 			is_alone = true;
 		}
-		else if (following_human) is_alone = false;
+		else if (FollowingHuman) is_alone = false;
 
 		if (!is_reversing && FollowerInReverse){
 			reverse_start = std::chrono::system_clock::now();
@@ -389,7 +411,7 @@ int main(int argc, char **argv)
 		else if (AnyBumperPressed) WorldState = 2;
 
 		// Excitement Mode Conditions
-		else if ((following_human) && (last_state == 1)) WorldState = 3;
+		else if ((FollowingHuman) && (last_state == 1)) WorldState = 3;
 
 		// Rage Mode Conditions
 		else if (is_reversing && (time_in_reverse > REVERSE_TIME)) WorldState = 4;
