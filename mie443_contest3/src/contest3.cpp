@@ -140,6 +140,7 @@ void fearMode(ros::Publisher vel_pub) {
 		vel_pub.publish(Vel);
 		rotate(vel_pub, 30);
 		start = std::chrono::system_clock::now();
+		seconds_elapsed = 0;
 		ROS_INFO("Turn slightly and forward");
 		while (ros::ok() && seconds_elapsed<=fear_forward_time && !FollowingHuman){
 			ros::spinOnce();
@@ -157,6 +158,7 @@ void fearMode(ros::Publisher vel_pub) {
 		vel_pub.publish(Vel);
 		rotate(vel_pub, -60);
 		start = std::chrono::system_clock::now();
+		seconds_elapsed = 0;
 		ROS_INFO("Turn slightly other dir. and forward");
 		while (ros::ok() && seconds_elapsed<=fear_forward_time && !FollowingHuman){
 			ros::spinOnce();
@@ -173,6 +175,7 @@ void fearMode(ros::Publisher vel_pub) {
 		vel_pub.publish(Vel);
 		rotate(vel_pub, 30);
 		start = std::chrono::system_clock::now();
+		seconds_elapsed = 0;
 		ROS_INFO("backwards and noise");
 		while (ros::ok() && seconds_elapsed<=fear_rev_time && !FollowingHuman){
 			ros::spinOnce();
