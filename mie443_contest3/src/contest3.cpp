@@ -2,6 +2,9 @@
 #include <ros/package.h>
 #include <imageTransporter.hpp>
 #include <chrono>
+#include <opencv2/core.hpp>
+#include <cv.h>
+#include <cv_bridge/cv_bridge.h>
 //#include "led_manager/LedAnim.h"
 
 using namespace std;
@@ -59,51 +62,64 @@ int main(int argc, char **argv)
 	sc.playWave(path_to_sounds + "sound.wav");
 	ros::Duration(0.5).sleep();
 
+	// creating the image files for emotions
+	cv::Mat sad_image = cv::imread("/home/selin/catkin_ws/src/MIE443-Turtlebot-Rover/mie443_contest3/images/Sad.png",cv::IMREAD_UNCHANGED);
+	cv::Mat excited_image = cv::imread("/home/selin/catkin_ws/src/MIE443-Turtlebot-Rover/mie443_contest3/images/Excited.png",cv::IMREAD_UNCHANGED);
+	cv::Mat fear_image = cv::imread("/home/selin/catkin_ws/src/MIE443-Turtlebot-Rover/mie443_contest3/images/Fear.png",cv::IMREAD_UNCHANGED);
+	cv::Mat rage_image = cv::imread("/home/selin/catkin_ws/src/MIE443-Turtlebot-Rover/mie443_contest3/images/Rage.png",cv::IMREAD_UNCHANGED);
+
+	double scaleFactor = 10;
+
+	cv::resize(sad_image, sad_image, cv::Size(sad_image.cols*scaleFactor, sad_image.rows*scaleFactor), cv::INTER_LINEAR);
+	cv::resize(excited_image, excited_image, cv::Size(excited_image.cols*scaleFactor, excited_image.rows*scaleFactor), cv::INTER_LINEAR);
+	cv::resize(fear_image, fear_image, cv::Size(fear_image.cols*scaleFactor, fear_image.rows*scaleFactor), cv::INTER_LINEAR);
+	cv::resize(rage_image, rage_image, cv::Size(rage_image.cols*scaleFactor, rage_image.rows*scaleFactor), cv::INTER_LINEAR);
+
 	while(ros::ok() && secondsElapsed <= 480){		
 		ros::spinOnce();
 
-		while (state1){
-			ros::spinOnce();
-			if (follow_cmd.linear.x != 0){ //used this since it is alredy being published and subscribed (can be changed to sensor output)
-				world_state = 3;
-				state1 = false;
-			}
-		}
-
-		if(world_state == 0){
-			//fill with your code
-			//vel_pub.publish(vel);
-			vel_pub.publish(follow_cmd);
-		}
+		//To do for images: 1)make all png 2)make all same size 3)include opencv libraries 4)create images folder
 		
-		else if(world_state == 3){ //state 3 --> show excitement
+		//sad
+		cv::imshow("view", sad_image);
+		ros::Time start_time1 = ros::Time::now(); // Get the current time
+		while ((ros::Time::now() - start_time1).toSec() < 5.0) { // Wait for 5 seconds
+			cv::waitKey(1); // Wait for 1 millisecond for a key event
+		}
+		cv::destroyAllWindows();
+		ros::Duration(2.0).sleep();
 
-			// Move TurtleBot in circles for 10 seconds
-			vel.angular.z = 1.0;
-			for (int i=0; i < 10; i++){ 
-				vel_pub.publish(vel);
-				ros::Duration(1.0).sleep();
-			}
-			
-			// Play happy/exciting song for 3 seconds
-			sc.playWave(path_to_sounds + "sound.wav"); //add happy/exciting sound and modify the name
-			ros::Duration(3).sleep();
+		//excited
+		cv::imshow("view", excited_image);
+		ros::Time start_time2 = ros::Time::now(); // Get the current time
+		while ((ros::Time::now() - start_time2).toSec() < 5.0) { // Wait for 5 seconds
+			cv::waitKey(1); // Wait for 1 millisecond for a key event
+		}
+		cv::destroyAllWindows();
+		ros::Duration(2.0).sleep();
 
-			// // Blink the LEDs in different colors
-  			// led_manager::LedAnim led_anim;
-  			// led_anim.request.name = "blink";
-  			// led_anim.request.color.r = 255;
-  			// led_anim.request.color.g = 0;
-  			// led_anim.request.color.b = 0;
-  			// led_anim.request.frequency = 5;
-  			// led_anim.request.duration = 5.0;
-  			// led_client.call(led_anim);
+		//fear
+		cv::imshow("view", fear_image);
+		ros::Time start_time3 = ros::Time::now(); // Get the current time
+		while ((ros::Time::now() - start_time3).toSec() < 5.0) { // Wait for 5 seconds
+			cv::waitKey(1); // Wait for 1 millisecond for a key event
+		}
+		cv::destroyAllWindows();
+		ros::Duration(2.0).sleep();
+
+		//rage
+		cv::imshow("view", rage_image);
+		ros::Time start_time4 = ros::Time::now(); // Get the current time
+		while ((ros::Time::now() - start_time4).toSec() < 5.0) { // Wait for 5 seconds
+			cv::waitKey(1); // Wait for 1 millisecond for a key event
+		}
+		cv::destroyAllWindows();
+		ros::Duration(2.0).sleep();
 
 		}
 		
 		secondsElapsed = std::chrono::duration_cast<std::chrono::seconds>(std::chrono::system_clock::now()-start).count();
 		loop_rate.sleep();
-	}
 
 	return 0;
 }
