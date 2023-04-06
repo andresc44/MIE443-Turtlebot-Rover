@@ -11,11 +11,11 @@ using namespace std;
 #define LOOP_RATE 10                            	// Rate for while loops that dictate callback and publish frequency (Hz)
 #define FORWARD_DIST 0.5
 #define TURNING_V 0.6 //Adam
-#define BACKWARD_V -0.1 //Adam
+#define BACKWARD_V -0.3 //Adam
 #define N_BUMPER (3)                            // Number of bumpers on kobuki base
 #define RAGE_VEL 0.5
-#define RAGE_TURN 0.4
-#define REVERSE_TIME 8
+#define RAGE_TURN 1.5
+#define REVERSE_TIME 3
 #define BACKWARD_T 0.5
 #define FEAR_TIME 2.5
 #define DEG2RAD(deg) ((deg) * M_PI / 180.)      // Inverse conversion function
@@ -26,6 +26,7 @@ geometry_msgs::Twist Vel;							// Create message for velocities as Twist type
 ros::Publisher VelPub;
 
 // std::string path_to_sounds ("/home/thursday/catkin_ws/src/MIE443-Turtlebot-Rover/mie443_contest3/sounds");
+string path_to_sounds = ros::package::getPath("mie443_contest3") + "/sounds/";
 
 uint8_t Bumper[3] = {kobuki_msgs::BumperEvent::RELEASED, kobuki_msgs::BumperEvent::RELEASED, kobuki_msgs::BumperEvent::RELEASED};
 bool AnyBumperPressed = false;                  // Reset variable to false
@@ -43,7 +44,7 @@ void personCB (const visualization_msgs::Marker msg) {
 	float person_x = msg.pose.position.x;
 	float person_y = msg.pose.position.y;
 	float person_z = msg.pose.position.z;
-	ROS_INFO("Person x: %f, Person y: %f, Person z: %f", person_x, person_y, person_z);
+	// ROS_INFO("Person x: %f, Person y: %f, Person z: %f", person_x, person_y, person_z);
 	if ((person_x != 0) && (person_y != 0)) FollowingHuman = true;
 	else FollowingHuman = false;
 }
@@ -53,7 +54,9 @@ void followerCB(const geometry_msgs::Twist msg){ 	// Andres
 	FollowerInReverse = false;
 	MovingForward = true;
 	if (msg.linear.x < -0.1) FollowerInReverse = true;
+	else FollowerInReverse = false;
 	if (msg.linear.x > 0.1) MovingForward = true;
+	else MovingForward = false;
 }
 
 //Adam's branch/////////////////////////////////////
@@ -199,13 +202,13 @@ void sadMode(ros::Publisher vel_pub) {
 	//////start being sad
 	// sc.playWave(path_to_sounds + "sound.wav"); //starts playing crying noises
 	
-	rotate(vel_pub, -45); //rotate back an fourth while crying 
+	rotate(vel_pub, -23); //rotate back an fourth while crying 
 	//delay()
 	rotate(vel_pub,45);
 	//delay()
 	rotate(vel_pub,-45);
 	//delay()
-	rotate(vel_pub, 45);
+	rotate(vel_pub, 23);
 	//delay
 	// sc.stopPlayingWave(); //stops the sound CAUSES CATKIN_MAKE ERROR
 	WorldState = 0;
@@ -223,6 +226,7 @@ void excitedMode(ros::Publisher vel_pub) {
 	// Play happy/exciting song for 3 seconds
 	// sc.playWave(path_to_sounds + "sound.wav"); //add happy/exciting sound and modify the name
 	ros::Duration(3).sleep();
+	// sound_play::SoundClient sc;
 
 	// // Blink the LEDs in different colors
 	// led_manager::LedAnim led_anim;
@@ -320,8 +324,8 @@ int main(int argc, char **argv)
 	ros::init(argc, argv, "emotional_follower");
 	ros::NodeHandle nh;
 	
-	sound_play::SoundClient sc;
-	string path_to_sounds = ros::package::getPath("mie443_contest3") + "/sounds/";
+	sound_play::SoundClient sc_main;
+	// string path_to_sounds = ros::package::getPath("mie443_contest3") + "/sounds/";
 	// string path_to_sounds = ros::package::getPath("mie443_contest3") + "/sounds/";
 	teleController eStop;
 
@@ -348,7 +352,7 @@ int main(int argc, char **argv)
 	// geometry_msgs::Twist vel; //unnecessary, likely will be deleted
 	// vel.angular.z = 0.2;
 	// vel.linear.x = 0.0;
-	// sc.playWave(path_to_sounds + "sound.wav");
+	sc_main.playWave(path_to_sounds + "sound.wav");
 	
 	start = std::chrono::system_clock::now();
 	reverse_start = start;
@@ -367,9 +371,6 @@ int main(int argc, char **argv)
 	ROS_INFO("Entering while loop");
 	while(ros::ok() && seconds_elapsed <= 480){		
 		ros::spinOnce();
-		
-		// if ((PersonX != 0) && (PersonY != 0)) FollowingHuman = true;
-		// else FollowingHuman = false;
 		ROS_INFO("FollowingHuman: %i, AnyBumperPressed: %i, MovingForward: %i, FollowerInReverse: %i", FollowingHuman, AnyBumperPressed, MovingForward, FollowerInReverse);
 
 // // try {
@@ -405,7 +406,7 @@ int main(int argc, char **argv)
 		else if (MovingForward) is_reversing = false;
 		ROS_INFO("last_state: %i, time: %i, reverse time: %i, alone time: %i, reversing?: %i, alone?: %i", last_state, seconds_elapsed, time_in_reverse, time_alone, is_reversing, is_alone);
 		// Fear Mode Conditions
-		if ((is_alone) && (time_alone > FEAR_TIME) && (last_state != 3)) WorldState = 1;
+		if ((is_alone) && (time_alone > FEAR_TIME) && (last_state != 3) && (last_state != 4)) WorldState = 1;
 
 		// Sad Mode Conditions
 		else if (AnyBumperPressed) WorldState = 2;
@@ -435,21 +436,18 @@ int main(int argc, char **argv)
 				ROS_INFO("Hit something, entering sad mode");
 				sadMode(VelPub);
 				ROS_INFO("Broke sad mode");
-				// buffer_start = std::chrono::system_clock::now();
 				last_state = 2;
 				break;
 			case 3:
 				ROS_INFO("Found my person, getting excited");
 				excitedMode(VelPub);
 				ROS_INFO("Breaking excited mode");
-				// buffer_start = std::chrono::system_clock::now();
 				last_state = 3;
 				break;
 			case 4:
 				ROS_INFO("Got intimidated, getting angry");
 				rageMode(VelPub);
 				ROS_INFO("Breaking rage mode");
-				// buffer_start = std::chrono::system_clock::now();
 				is_reversing = false;
 				last_state = 4;
 				break;
