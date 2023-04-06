@@ -48,7 +48,7 @@ cv::Mat fear_image = cv::imread("/home/thurs/catkin_ws/src/MIE443-Turtlebot-Rove
 cv::Mat rage_image = cv::imread("/home/thurs/catkin_ws/src/MIE443-Turtlebot-Rover/mie443_contest3/images/Rage.png",cv::IMREAD_UNCHANGED);
 cv::Mat neutral_image = cv::imread("/home/thurs/catkin_ws/src/MIE443-Turtlebot-Rover/mie443_contest3/images/Neutral.png",cv::IMREAD_UNCHANGED);
 
-double scaleFactor = 10;
+double scaleFactor = 1.25;
 
 cv::resize(sad_image, sad_image, cv::Size(sad_image.cols*scaleFactor, sad_image.rows*scaleFactor), cv::INTER_LINEAR);
 cv::resize(excited_image, excited_image, cv::Size(excited_image.cols*scaleFactor, excited_image.rows*scaleFactor), cv::INTER_LINEAR);
