@@ -4,6 +4,9 @@
 #include <chrono>
 #include <kobuki_msgs/BumperEvent.h>
 #include <visualization_msgs/Marker.h>
+#include <opencv2/core.hpp>
+#include <cv.h>
+#include <cv_bridge/cv_bridge.h>
 
 //#include "led_manager/LedAnim.h" // Selin
 
@@ -37,6 +40,22 @@ bool FollowingHuman = true;
 
 int WorldState;
 
+
+// creating the image files for emotions
+cv::Mat sad_image = cv::imread("/home/thurs/catkin_ws/src/MIE443-Turtlebot-Rover/mie443_contest3/images/Sad.png",cv::IMREAD_UNCHANGED);
+cv::Mat excited_image = cv::imread("/home/thurs/catkin_ws/src/MIE443-Turtlebot-Rover/mie443_contest3/images/Excited.png",cv::IMREAD_UNCHANGED);
+cv::Mat fear_image = cv::imread("/home/thurs/catkin_ws/src/MIE443-Turtlebot-Rover/mie443_contest3/images/Fear.png",cv::IMREAD_UNCHANGED);
+cv::Mat rage_image = cv::imread("/home/thurs/catkin_ws/src/MIE443-Turtlebot-Rover/mie443_contest3/images/Rage.png",cv::IMREAD_UNCHANGED);
+cv::Mat neutral_image = cv::imread("/home/thurs/catkin_ws/src/MIE443-Turtlebot-Rover/mie443_contest3/images/Neutral.png",cv::IMREAD_UNCHANGED);
+
+double scaleFactor = 10;
+
+cv::resize(sad_image, sad_image, cv::Size(sad_image.cols*scaleFactor, sad_image.rows*scaleFactor), cv::INTER_LINEAR);
+cv::resize(excited_image, excited_image, cv::Size(excited_image.cols*scaleFactor, excited_image.rows*scaleFactor), cv::INTER_LINEAR);
+cv::resize(fear_image, fear_image, cv::Size(fear_image.cols*scaleFactor, fear_image.rows*scaleFactor), cv::INTER_LINEAR);
+cv::resize(rage_image, rage_image, cv::Size(rage_image.cols*scaleFactor, rage_image.rows*scaleFactor), cv::INTER_LINEAR);
+cv::resize(neutral_image, neutral_image, cv::Size(neutral_image.cols*scaleFactor, neutral_image.rows*scaleFactor), cv::INTER_LINEAR);
+	
 int sign(float number) {
     return (number>0)? 1: -1;                               // Positive -> 1, otherwise -1
 }
@@ -217,15 +236,21 @@ void sadMode(ros::Publisher vel_pub) {
 void excitedMode(ros::Publisher vel_pub) {
 	// Move TurtleBot in circles for 10 seconds
 	Vel.angular.z = 1.0;
-	ROS_INFO("Excited circle");
-	for (int i=0; i < 10; i++){ 
-		vel_pub.publish(Vel);
-		ros::Duration(1.0).sleep();
+	Vel.linear.x = 0.0;                                      	// Set linear to Twist
+	uint64_t seconds_elapsed = 0;                                   // New variable for time that has passed    
+	float move_time = 10;   //0.5 m backwards
+	ros::Rate loop_rate(LOOP_RATE);
+	std::chrono::time_point<std::chrono::system_clock> start;
+	start = std::chrono::system_clock::now();                       // Start new timer at current time
+	while (ros::ok() && seconds_elapsed <= move_time) {         // Kobuki diameter is 0.3515m, we want to travel half (3.5s x 0.05m/s) 
+		vel_pub.publish(Vel);                                        // Publish cmd_vel to teleop mux input
+		loop_rate.sleep();
+		seconds_elapsed = std::chrono::duration_cast<std::chrono::seconds>(std::chrono::system_clock::now()-start).count(); // Count how much time has passed
+		//ROS_INFO("seconds_elapsed:%i,backward_T:%f",seconds_elapsed,BACKWARD_T);
 	}
 	
 	// Play happy/exciting song for 3 seconds
 	// sc.playWave(path_to_sounds + "sound.wav"); //add happy/exciting sound and modify the name
-	ros::Duration(3).sleep();
 	// sound_play::SoundClient sc;
 
 	// // Blink the LEDs in different colors
@@ -324,7 +349,7 @@ int main(int argc, char **argv)
 	ros::init(argc, argv, "emotional_follower");
 	ros::NodeHandle nh;
 	
-	sound_play::SoundClient sc_main;
+	sound_play::SoundClient sc;
 	// string path_to_sounds = ros::package::getPath("mie443_contest3") + "/sounds/";
 	// string path_to_sounds = ros::package::getPath("mie443_contest3") + "/sounds/";
 	teleController eStop;
@@ -352,13 +377,15 @@ int main(int argc, char **argv)
 	// geometry_msgs::Twist vel; //unnecessary, likely will be deleted
 	// vel.angular.z = 0.2;
 	// vel.linear.x = 0.0;
-	sc_main.playWave(path_to_sounds + "sound.wav");
+	sc.playWave(path_to_sounds + "sound.wav");
 	
 	start = std::chrono::system_clock::now();
 	reverse_start = start;
 	fear_start = start;
 	// buffer_start = std::chrono::system_clock::now(); May cause issues
 	// reverse_start = std::chrono::system_clock::now();
+
+	
 	WorldState = 0;
     uint64_t seconds_elapsed = 0;
 	uint64_t time_in_reverse = 0;
@@ -425,31 +452,51 @@ int main(int argc, char **argv)
 				neutralMode(VelPub); //idk play music or show images or something
 				ROS_INFO("Following Human as normal");
 				break;
-			case 1: 
+			case 1:
+				sc.playWave(path_to_sounds + "fear.wav");
+				cv::destroyAllWindows();
+				cv::imshow("view", fear_image);
 				ROS_INFO("Entering fear mode");
 				fearMode(VelPub);
 				ROS_INFO("Broke fear mode");
 				last_state = 1;
 				is_alone = false;
+				cv::destroyAllWindows();
+				cv::imshow("view", neutral_image);
 				break;
 			case 2:
+				sc.playWave(path_to_sounds + "sad.wav");
+				cv::destroyAllWindows();
+				cv::imshow("view", sad_image);
 				ROS_INFO("Hit something, entering sad mode");
 				sadMode(VelPub);
 				ROS_INFO("Broke sad mode");
 				last_state = 2;
+				cv::destroyAllWindows();
+				cv::imshow("view", neutral_image);
 				break;
 			case 3:
+				sc.playWave(path_to_sounds + "excited.wav");
+				cv::destroyAllWindows();
+				cv::imshow("view", excited_image);
 				ROS_INFO("Found my person, getting excited");
 				excitedMode(VelPub);
 				ROS_INFO("Breaking excited mode");
 				last_state = 3;
+				cv::destroyAllWindows();
+				cv::imshow("view", neutral_image);
 				break;
 			case 4:
+				sc.playWave(path_to_sounds + "rage.wav");
+				cv::destroyAllWindows();
+				cv::imshow("view", rage_image);
 				ROS_INFO("Got intimidated, getting angry");
 				rageMode(VelPub);
 				ROS_INFO("Breaking rage mode");
 				is_reversing = false;
 				last_state = 4;
+				cv::destroyAllWindows();
+				cv::imshow("view", neutral_image);
 				break;
 		}
 
