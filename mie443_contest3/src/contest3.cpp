@@ -122,20 +122,21 @@ void neutralMode(ros::Publisher vel_pub) {
 void fearMode(ros::Publisher vel_pub) {
 	float fear_vel = 0.3;
 	float fear_rev_vel = -0.1;
-	int fear_forward_time = 1;
-	int rev_cnt = 0;
+	float fear_rot_vel = 1.0;
+	int fear_forward_time = 2;
+	int fear_rev_time = 5;
 	ros::Rate loop_rate(LOOP_RATE);
 	std::chrono::time_point<std::chrono::system_clock> start;
 	uint64_t seconds_elapsed = 0;                 
-	bool FollowingHuman = false;   
 
 	Vel.angular.z = 0.0;
     Vel.linear.x = 0.0;              
 
 	while (ros::ok() && !AnyBumperPressed && !FollowingHuman){	
-		// spin around 
+		// spin around
+		ros::spinOnce();
 		Vel.linear.x = 0.0;
-		Vel.angular.z = 0.5;
+		Vel.angular.z = fear_rot_vel;
 		vel_pub.publish(Vel);
 		rotate(vel_pub, 180);
 		rotate(vel_pub, 180);
@@ -144,44 +145,47 @@ void fearMode(ros::Publisher vel_pub) {
 		start = std::chrono::system_clock::now();
 		ROS_INFO("Fear Forward");
 		while (ros::ok() && seconds_elapsed<=fear_forward_time && !FollowingHuman){
+			ros::spinOnce();
 			Vel.linear.x = fear_vel;
 			Vel.angular.z = 0.0;
 			vel_pub.publish(Vel);
 			loop_rate.sleep();
 			seconds_elapsed = std::chrono::duration_cast<std::chrono::seconds>(std::chrono::system_clock::now()-start).count(); 
-			ros::spinOnce();
 		}			
 
 		// turn slgihtly and go forwards
 		Vel.linear.x = 0.0;
-		Vel.angular.z = 0.5;
+		Vel.angular.z = fear_rot_vel;
 		vel_pub.publish(Vel);
 		rotate(vel_pub, 30);
 		start = std::chrono::system_clock::now();
+		seconds_elapsed = 0;
 		ROS_INFO("Turn slightly and forward");
-		while (ros::ok() && seconds_elapsed<=0.5 && !FollowingHuman){
+		while (ros::ok() && seconds_elapsed<=fear_forward_time && !FollowingHuman){
+			ros::spinOnce();
+			ROS_INFO("2nd forward");
 			Vel.linear.x = fear_vel;
 			Vel.angular.z = 0.0;
 			vel_pub.publish(Vel);
 			loop_rate.sleep();
 			seconds_elapsed = std::chrono::duration_cast<std::chrono::seconds>(std::chrono::system_clock::now()-start).count(); 
-			ros::spinOnce();
 		}	
 		
 		// turn slightly in other direction and go forwards	
 		Vel.linear.x = 0.0;
-		Vel.angular.z = 0.5;
+		Vel.angular.z = fear_rot_vel;
 		vel_pub.publish(Vel);
 		rotate(vel_pub, -60);
 		start = std::chrono::system_clock::now();
+		seconds_elapsed = 0;
 		ROS_INFO("Turn slightly other dir. and forward");
-		while (ros::ok() && seconds_elapsed<=0.5 && !FollowingHuman){
+		while (ros::ok() && seconds_elapsed<=fear_forward_time && !FollowingHuman){
+			ros::spinOnce();
 			Vel.linear.x = fear_vel;
 			Vel.angular.z = 0.0;
 			vel_pub.publish(Vel);
 			loop_rate.sleep();
 			seconds_elapsed = std::chrono::duration_cast<std::chrono::seconds>(std::chrono::system_clock::now()-start).count(); 
-			ros::spinOnce();
 		}	
 
 		// slowly go backwards and express fear sound
@@ -190,15 +194,16 @@ void fearMode(ros::Publisher vel_pub) {
 		vel_pub.publish(Vel);
 		rotate(vel_pub, 30);
 		start = std::chrono::system_clock::now();
+		seconds_elapsed = 0;
 		ROS_INFO("backwards and noise");
-		while (ros::ok() && seconds_elapsed<=0.5 && rev_cnt == 3 && !FollowingHuman){
+		while (ros::ok() && seconds_elapsed<=fear_rev_time && !FollowingHuman){
+			ros::spinOnce();
+			ROS_INFO("BACKWARDS");
 			Vel.linear.x = fear_rev_vel;
 			Vel.angular.z = 0.0;
 			vel_pub.publish(Vel);
 			loop_rate.sleep();
 			seconds_elapsed = std::chrono::duration_cast<std::chrono::seconds>(std::chrono::system_clock::now()-start).count(); 
-			rev_cnt += 1;
-			ros::spinOnce();
 		}	
 	}
 }
