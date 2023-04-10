@@ -112,6 +112,7 @@ void fearMode(ros::Publisher vel_pub) {
 	float fear_rot_vel = 1.0;
 	int fear_forward_time = 2;
 	int fear_rev_time = 5;
+	bool spun = false;
 	ros::Rate loop_rate(LOOP_RATE);
 	std::chrono::time_point<std::chrono::system_clock> start;
 	uint64_t seconds_elapsed = 0;                 
@@ -122,11 +123,14 @@ void fearMode(ros::Publisher vel_pub) {
 	while (ros::ok() && !AnyBumperPressed && !FollowingHuman){	
 		// spin around
 		ros::spinOnce();
-		Vel.linear.x = 0.0;
-		Vel.angular.z = fear_rot_vel;
-		vel_pub.publish(Vel);
-		rotate(vel_pub, 180);
-		rotate(vel_pub, 180);
+		while (!spun){
+			Vel.linear.x = 0.0;
+			Vel.angular.z = fear_rot_vel;
+			vel_pub.publish(Vel);
+			rotate(vel_pub, 180);
+			rotate(vel_pub, 180);
+			spun = true;
+		}
 
 		// go forwards
 		start = std::chrono::system_clock::now();
@@ -367,6 +371,7 @@ int main(int argc, char **argv)
 	cv::Mat fear_image = cv::imread("/home/thursday/catkin_ws/src/MIE443-Turtlebot-Rover/mie443_contest3/images/Fear.png",cv::IMREAD_UNCHANGED);
 	cv::Mat rage_image = cv::imread("/home/thursday/catkin_ws/src/MIE443-Turtlebot-Rover/mie443_contest3/images/Rage.png",cv::IMREAD_UNCHANGED);
 	cv::Mat neutral_image = cv::imread("/home/thursday/catkin_ws/src/MIE443-Turtlebot-Rover/mie443_contest3/images/Neutral.png",cv::IMREAD_UNCHANGED);
+	cv::Mat curious_image = cv::imread("/home/thursday/catkin_ws/src/MIE443-Turtlebot-Rover/mie443_contest3/images/Curious.png",cv::IMREAD_UNCHANGED);
 
 	double scaleFactor = 1.25;
 
@@ -375,7 +380,7 @@ int main(int argc, char **argv)
 	cv::resize(fear_image, fear_image, cv::Size(fear_image.cols*scaleFactor, fear_image.rows*scaleFactor), cv::INTER_LINEAR);
 	cv::resize(rage_image, rage_image, cv::Size(rage_image.cols*scaleFactor, rage_image.rows*scaleFactor), cv::INTER_LINEAR);
 	cv::resize(neutral_image, neutral_image, cv::Size(neutral_image.cols*scaleFactor, neutral_image.rows*scaleFactor), cv::INTER_LINEAR);
-
+	cv::resize(curious_image, curious_image, cv::Size(curious_image.cols*scaleFactor, curious_image.rows*scaleFactor), cv::INTER_LINEAR);
 
 	imageTransporter rgbTransport("camera/image/", sensor_msgs::image_encodings::BGR8); //--for Webcam
 	//imageTransporter rgbTransport("camera/rgb/image_raw", sensor_msgs::image_encodings::BGR8); //--for turtlebot Camera
@@ -384,7 +389,6 @@ int main(int argc, char **argv)
 	// geometry_msgs::Twist vel; //unnecessary, likely will be deleted
 	// vel.angular.z = 0.2;
 	// vel.linear.x = 0.0;
-	sc.playWave(path_to_sounds + "sound.wav");
 	
 	start = std::chrono::system_clock::now();
 	reverse_start = start;
@@ -426,6 +430,8 @@ int main(int argc, char **argv)
 		
 
 		if (!is_alone && !FollowingHuman){
+			time_in_reverse = 0;
+			is_reversing = false;
 			fear_start = std::chrono::system_clock::now();
 			time_alone = std::chrono::duration_cast<std::chrono::seconds>(std::chrono::system_clock::now()-fear_start).count();
 			is_alone = true;
@@ -455,64 +461,69 @@ int main(int argc, char **argv)
 
 		ROS_INFO("Worldstate: ", WorldState);
 		switch (WorldState) {
-			case 0:
+			case 0: {
 				// neutralMode(VelPub); //idk play music or show images or something
+				cv::imshow("view",neutral_image);
+				cv::waitKey(1);
 				VelPub.publish(follow_cmd);
 				ROS_INFO("Following Human as normal");
-				break;
-			case 1:
-				sc.playWave(path_to_sounds + "sound.wav");
-				cv::destroyAllWindows();
-				cv::imshow("view", fear_image);
-				cv::waitKey(1);
+				break; }
+			case 1: {
 				ROS_INFO("Entering fear mode");
 
-
-
-
-				float fear_vel = 0.3;
+				float fear_vel = 0.4;
 				float fear_rev_vel = -0.1;
-				float fear_rot_vel = 1.0;
-				int fear_forward_time = 2;
+				float fear_rot_vel = 2.0;
+				int fear_forward_time = 0.6;
 				int fear_rev_time = 5;
+				bool spun = false;
 				// ros::Rate loop_rate(LOOP_RATE);
 				std::chrono::time_point<std::chrono::system_clock> fear_start;
 				uint64_t fear_seconds_elapsed = 0;                 
 
 				Vel.angular.z = 0.0;
 				Vel.linear.x = 0.0;              
-
+// 
 				while (ros::ok() && !AnyBumperPressed && !FollowingHuman){	
 					// spin around
-					ros::spinOnce();
-					Vel.linear.x = 0.0;
-					Vel.angular.z = fear_rot_vel;
-					VelPub.publish(Vel);
-					rotate(VelPub, 180);
-					rotate(VelPub, 180);
+					cv::imshow("view",curious_image);
+					while (!spun){
+						cv::waitKey(1);
+						Vel.linear.x = 0.0;
+						Vel.angular.z = fear_rot_vel;
+						VelPub.publish(Vel);
+						sc.playWave(path_to_sounds + "Fear_1.wav");
+						rotate(VelPub, 180);
+						rotate(VelPub, 180);
+						spun = true;
+					}
 
 					// go forwards
 					fear_start = std::chrono::system_clock::now();
 					ROS_INFO("Fear Forward");
-					while (ros::ok() && fear_seconds_elapsed<=fear_forward_time && !FollowingHuman){
+					cv::imshow("view",curious_image);
+					while (ros::ok() && fear_seconds_elapsed<=fear_forward_time){
 						ros::spinOnce();
+						cv::waitKey(1);
 						Vel.linear.x = fear_vel;
 						Vel.angular.z = 0.0;
 						VelPub.publish(Vel);
 						loop_rate.sleep();
 						fear_seconds_elapsed = std::chrono::duration_cast<std::chrono::seconds>(std::chrono::system_clock::now()-fear_start).count(); 
 					}			
-
+// 
 					// turn slgihtly and go forwards
 					Vel.linear.x = 0.0;
 					Vel.angular.z = fear_rot_vel;
 					VelPub.publish(Vel);
-					rotate(VelPub, 30);
+					rotate(VelPub, 90);
 					fear_start = std::chrono::system_clock::now();
 					fear_seconds_elapsed = 0;
 					ROS_INFO("Turn slightly and forward");
-					while (ros::ok() && fear_seconds_elapsed<=fear_forward_time && !FollowingHuman){
+					cv::imshow("view",curious_image);
+					while (ros::ok() && fear_seconds_elapsed<=fear_forward_time){
 						ros::spinOnce();
+						cv::waitKey(1);
 						ROS_INFO("2nd forward");
 						Vel.linear.x = fear_vel;
 						Vel.angular.z = 0.0;
@@ -520,69 +531,70 @@ int main(int argc, char **argv)
 						loop_rate.sleep();
 						fear_seconds_elapsed = std::chrono::duration_cast<std::chrono::seconds>(std::chrono::system_clock::now()-fear_start).count(); 
 					}	
-					
+					// 
 					// turn slightly in other direction and go forwards	
 					Vel.linear.x = 0.0;
 					Vel.angular.z = fear_rot_vel;
 					VelPub.publish(Vel);
-					rotate(VelPub, -60);
+					rotate(VelPub, -180);
 					fear_start = std::chrono::system_clock::now();
 					fear_seconds_elapsed = 0;
 					ROS_INFO("Turn slightly other dir. and forward");
-					while (ros::ok() && fear_seconds_elapsed<=fear_forward_time && !FollowingHuman){
+					cv::imshow("view",curious_image);
+					while (ros::ok() && fear_seconds_elapsed<=fear_forward_time){
 						ros::spinOnce();
+						cv::waitKey(1);
 						Vel.linear.x = fear_vel;
 						Vel.angular.z = 0.0;
 						VelPub.publish(Vel);
 						loop_rate.sleep();
 						fear_seconds_elapsed = std::chrono::duration_cast<std::chrono::seconds>(std::chrono::system_clock::now()-fear_start).count(); 
 					}	
-
+// 
 					// slowly go backwards and express fear sound
 					Vel.linear.x = 0.0;
 					Vel.angular.z = 0.2;
 					VelPub.publish(Vel);
-					rotate(VelPub, 30);
+					rotate(VelPub, 90);
 					fear_start = std::chrono::system_clock::now();
-					fear_seconds_elapsed = 0;
 					ROS_INFO("backwards and noise");
-					while (ros::ok() && fear_seconds_elapsed<=fear_rev_time && !FollowingHuman){
-						ros::spinOnce();
+					cv::imshow("view", fear_image);
+					fear_seconds_elapsed = 0;
+					sc.playWave(path_to_sounds + "Fear_2.wav");
+					while (ros::ok() && fear_seconds_elapsed<=fear_rev_time){
+						// sc.playWave(path_to_sounds + "Fear_3.wav");
 						ROS_INFO("BACKWARDS");
 						Vel.linear.x = fear_rev_vel;
 						Vel.angular.z = 0.0;
 						VelPub.publish(Vel);
+						ros::spinOnce();
+						cv::waitKey(1);
 						loop_rate.sleep();
 						fear_seconds_elapsed = std::chrono::duration_cast<std::chrono::seconds>(std::chrono::system_clock::now()-fear_start).count(); 
 					}	
+					cv::destroyAllWindows();
+					break;
+					//sc.stopPlayingWave(); //stops the sound CAUSES CATKIN_MAKE ERROR
 				}
-
-
-
-
-
-
+				time_in_reverse = 0;
+				is_reversing = false;
+// 
+// 
 
 				// fearMode(VelPub);
 				ROS_INFO("Broke fear mode");
 				last_state = 1;
 				is_alone = false;
 				cv::destroyAllWindows();
-				cv::imshow("view", neutral_image);
-				cv::waitKey(1);
-				break;
-			case 2:
-				sc.playWave(path_to_sounds + "sound.wav");
-				cv::destroyAllWindows();
-				cv::imshow("view", sad_image);
-				cv::waitKey(1);
+				break;}
+			case 2:{
 				ROS_INFO("Hit something, entering sad mode");
 				// sadMode(VelPub);
-
+				cv::imshow("view",sad_image);
 				Vel.linear.x = BACKWARD_V;                                      	// Set linear to Twist
 				Vel.angular.z = 0;
 				uint64_t sad_seconds_elapsed = 0;                                   // New variable for time that has passed    
-				float backward_time = 0.5/abs(BACKWARD_V);   //0.5 m backwards
+				float backward_time = 0.25/abs(BACKWARD_V);   //0.5 m backwards
 				// ros::Rate loop_rate(LOOP_RATE);
 				std::chrono::time_point<std::chrono::system_clock> sad_start;
 				sad_start = std::chrono::system_clock::now();                       // sad_Start new timer at current time
@@ -594,45 +606,50 @@ int main(int argc, char **argv)
 					//ROS_INFO("sad_seconds_elapsed:%i,backward_T:%f",sad_seconds_elapsed,BACKWARD_T);
 				}
 				//////sad_start being sad
-				// sc.playWave(path_to_sounds + "sound.wav"); //starts playing crying noises
 				
-				rotate(VelPub, -23); //rotate back an fourth while crying 
-				//delay()
-				rotate(VelPub,45);
-				//delay()
-				rotate(VelPub,-45);
-				//delay()
-				rotate(VelPub, 23);
-				//delay
-				// sc.stopPlayingWave(); //stops the sound CAUSES CATKIN_MAKE ERROR
+				
+				ros::Time start_time0 = ros::Time::now();
+				sc.playWave(path_to_sounds + "Sad.wav"); // starts playing crying noises
+				while ((ros::Time::now()-start_time0).toSec() < 11.0){
+					// cv::imshow("view",sad_image);
+					cv::waitKey(1);
+					rotate(VelPub, -15); //rotate back an fourth while crying 
+					//delay()
+					rotate(VelPub,30);
+					//delay()
+					rotate(VelPub,-30);
+					//delay()
+					rotate(VelPub,30);
+					//delay()
+					rotate(VelPub,-30);
+					//delay()
+					rotate(VelPub, 15);
+					//delay
+				}
 				WorldState = 0;
-
-
+				//sc.stopPlayingWave(); //stops the sound CAUSES CATKIN_MAKE ERROR
 
 				ROS_INFO("Broke sad mode");
 				last_state = 2;
 				cv::destroyAllWindows();
-				cv::imshow("view", neutral_image);
-				cv::waitKey(1);
-				break;
-			case 3:
-				sc.playWave(path_to_sounds + "sound.wav");
-				cv::destroyAllWindows();
-				cv::imshow("view", excited_image);
-				cv::waitKey(1);
+				break;}
+			case 3:{
+				sc.playWave(path_to_sounds + "Excited.wav");
 				ROS_INFO("Found my person, getting excited");
 				// excitedMode(VelPub);
 
 
 				// Move TurtleBot in circles for 10 seconds
-				Vel.angular.z = 1.2;
-				Vel.linear.x = 0.3;                                      	// Set linear to Twist
+				Vel.angular.z = 1.5;
+				Vel.linear.x = 0.4;                                      	// Set linear to Twist
 				uint64_t excited_seconds_elapsed = 0;                                   // New variable for time that has passed    
 				float move_time = 10;   //0.5 m backwards
 				// ros::Rate loop_rate(LOOP_RATE);
 				std::chrono::time_point<std::chrono::system_clock> excited_start;
 				excited_start = std::chrono::system_clock::now();                       // excited_Start new timer at current time
+				cv::imshow("view", excited_image);
 				while (ros::ok() && excited_seconds_elapsed <= move_time) {         // Kobuki diameter is 0.3515m, we want to travel half (3.5s x 0.05m/s) 
+					cv::waitKey(1);
 					VelPub.publish(Vel);                                        // Publish cmd_vel to teleop mux input
 					loop_rate.sleep();
 					excited_seconds_elapsed = std::chrono::duration_cast<std::chrono::seconds>(std::chrono::system_clock::now()-excited_start).count(); // Count how much time has passed
@@ -654,30 +671,14 @@ int main(int argc, char **argv)
 				// led_client.call(led_anim);
 				WorldState = 0;
 
-
-
-
-
-
-
-
 				ROS_INFO("Breaking excited mode");
 				last_state = 3;
 				cv::destroyAllWindows();
-				cv::imshow("view", neutral_image);
-				cv::waitKey(1);
-				break;
-			case 4:
-				sc.playWave(path_to_sounds + "sound.wav");
+				break;}
+			case 4:{
 				cv::destroyAllWindows();
-				cv::imshow("view", rage_image);
-				cv::waitKey(1);
 				ROS_INFO("Got intimidated, getting angry");
 				// rageMode(VelPub);
-
-
-
-
 
 
 				// Shake a little
@@ -685,7 +686,6 @@ int main(int argc, char **argv)
 				// Make noises
 				// Turn screen red 
 
-				// sc.playWave(path_to_sounds + "sound.wav"); //Get out of me swamp
 				ros::Duration(0.5).sleep();
 
 				// ros::Rate loop_rate(LOOP_RATE);
@@ -696,13 +696,15 @@ int main(int argc, char **argv)
 				uint64_t rage_seconds_elapsed = 0;                                    // Variable for time that has passed
 
 				ROS_INFO("Rushing person");
+				cv::imshow("view", rage_image);
 				while (ros::ok()  && !AnyBumperPressed) {						// Move forward until it hits feet
+					cv::waitKey(1);
 					VelPub.publish(Vel);
 					ros::spinOnce();                                            // Listen to all subscriptions once
 					loop_rate.sleep();
 				}
 				// "get out of my way"
-				// sc.playWave(path_to_sounds + "sound.wav"); //Move/get out, consider putting in bumper callback
+				sc.playWave(path_to_sounds + "Rage_1.wav"); //Move/get out, consider putting in bumper callback
 
 				ROS_INFO("Foot hit, reversing");
 
@@ -737,11 +739,11 @@ int main(int argc, char **argv)
 					rage_seconds_elapsed = std::chrono::duration_cast<std::chrono::seconds>(std::chrono::system_clock::now()-rage_start).count(); //count how much time has passed
 				}
 
-				// sc.playWave(path_to_sounds + "sound.wav"); //Rooooooaaaarrrr
+				sc.playWave(path_to_sounds + "Rage_2.wav"); //Rooooooaaaarrrr
 				Vel.angular.z = RAGE_TURN;
 				Vel.linear.x = 0.0;
 				rage_seconds_elapsed = 0;                                    			// Variable for time that has passed
-				float time_turning = 3.0;
+				float time_turning = 6.0;
 
 				rage_start = std::chrono::system_clock::now();                       // rage_Start the timer
 				ros::spinOnce();
@@ -754,16 +756,11 @@ int main(int argc, char **argv)
 				}
 
 
-
-
-
 				ROS_INFO("Breaking rage mode");
 				is_reversing = false;
 				last_state = 4;
 				cv::destroyAllWindows();
-				cv::imshow("view", neutral_image);
-				cv::waitKey(1);
-				break;
+				break;}
 		}
 
 		seconds_elapsed = std::chrono::duration_cast<std::chrono::seconds>(std::chrono::system_clock::now()-start).count();
