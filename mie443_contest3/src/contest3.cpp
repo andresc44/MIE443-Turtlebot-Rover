@@ -456,7 +456,8 @@ int main(int argc, char **argv)
 		ROS_INFO("Worldstate: ", WorldState);
 		switch (WorldState) {
 			case 0:
-				neutralMode(VelPub); //idk play music or show images or something
+				// neutralMode(VelPub); //idk play music or show images or something
+				VelPub.publish(follow_cmd);
 				ROS_INFO("Following Human as normal");
 				break;
 			case 1:
@@ -465,7 +466,104 @@ int main(int argc, char **argv)
 				cv::imshow("view", fear_image);
 				cv::waitKey(1);
 				ROS_INFO("Entering fear mode");
-				fearMode(VelPub);
+
+
+
+
+				float fear_vel = 0.3;
+				float fear_rev_vel = -0.1;
+				float fear_rot_vel = 1.0;
+				int fear_forward_time = 2;
+				int fear_rev_time = 5;
+				// ros::Rate loop_rate(LOOP_RATE);
+				std::chrono::time_point<std::chrono::system_clock> fear_start;
+				uint64_t fear_seconds_elapsed = 0;                 
+
+				Vel.angular.z = 0.0;
+				Vel.linear.x = 0.0;              
+
+				while (ros::ok() && !AnyBumperPressed && !FollowingHuman){	
+					// spin around
+					ros::spinOnce();
+					Vel.linear.x = 0.0;
+					Vel.angular.z = fear_rot_vel;
+					VelPub.publish(Vel);
+					rotate(VelPub, 180);
+					rotate(VelPub, 180);
+
+					// go forwards
+					fear_start = std::chrono::system_clock::now();
+					ROS_INFO("Fear Forward");
+					while (ros::ok() && fear_seconds_elapsed<=fear_forward_time && !FollowingHuman){
+						ros::spinOnce();
+						Vel.linear.x = fear_vel;
+						Vel.angular.z = 0.0;
+						VelPub.publish(Vel);
+						loop_rate.sleep();
+						fear_seconds_elapsed = std::chrono::duration_cast<std::chrono::seconds>(std::chrono::system_clock::now()-fear_start).count(); 
+					}			
+
+					// turn slgihtly and go forwards
+					Vel.linear.x = 0.0;
+					Vel.angular.z = fear_rot_vel;
+					VelPub.publish(Vel);
+					rotate(VelPub, 30);
+					fear_start = std::chrono::system_clock::now();
+					fear_seconds_elapsed = 0;
+					ROS_INFO("Turn slightly and forward");
+					while (ros::ok() && fear_seconds_elapsed<=fear_forward_time && !FollowingHuman){
+						ros::spinOnce();
+						ROS_INFO("2nd forward");
+						Vel.linear.x = fear_vel;
+						Vel.angular.z = 0.0;
+						VelPub.publish(Vel);
+						loop_rate.sleep();
+						fear_seconds_elapsed = std::chrono::duration_cast<std::chrono::seconds>(std::chrono::system_clock::now()-fear_start).count(); 
+					}	
+					
+					// turn slightly in other direction and go forwards	
+					Vel.linear.x = 0.0;
+					Vel.angular.z = fear_rot_vel;
+					VelPub.publish(Vel);
+					rotate(VelPub, -60);
+					fear_start = std::chrono::system_clock::now();
+					fear_seconds_elapsed = 0;
+					ROS_INFO("Turn slightly other dir. and forward");
+					while (ros::ok() && fear_seconds_elapsed<=fear_forward_time && !FollowingHuman){
+						ros::spinOnce();
+						Vel.linear.x = fear_vel;
+						Vel.angular.z = 0.0;
+						VelPub.publish(Vel);
+						loop_rate.sleep();
+						fear_seconds_elapsed = std::chrono::duration_cast<std::chrono::seconds>(std::chrono::system_clock::now()-fear_start).count(); 
+					}	
+
+					// slowly go backwards and express fear sound
+					Vel.linear.x = 0.0;
+					Vel.angular.z = 0.2;
+					VelPub.publish(Vel);
+					rotate(VelPub, 30);
+					fear_start = std::chrono::system_clock::now();
+					fear_seconds_elapsed = 0;
+					ROS_INFO("backwards and noise");
+					while (ros::ok() && fear_seconds_elapsed<=fear_rev_time && !FollowingHuman){
+						ros::spinOnce();
+						ROS_INFO("BACKWARDS");
+						Vel.linear.x = fear_rev_vel;
+						Vel.angular.z = 0.0;
+						VelPub.publish(Vel);
+						loop_rate.sleep();
+						fear_seconds_elapsed = std::chrono::duration_cast<std::chrono::seconds>(std::chrono::system_clock::now()-fear_start).count(); 
+					}	
+				}
+
+
+
+
+
+
+
+				// fearMode(VelPub);
 				ROS_INFO("Broke fear mode");
 				last_state = 1;
 				is_alone = false;
@@ -479,7 +577,38 @@ int main(int argc, char **argv)
 				cv::imshow("view", sad_image);
 				cv::waitKey(1);
 				ROS_INFO("Hit something, entering sad mode");
-				sadMode(VelPub);
+				// sadMode(VelPub);
+
+				Vel.linear.x = BACKWARD_V;                                      	// Set linear to Twist
+				Vel.angular.z = 0;
+				uint64_t sad_seconds_elapsed = 0;                                   // New variable for time that has passed    
+				float backward_time = 0.5/abs(BACKWARD_V);   //0.5 m backwards
+				// ros::Rate loop_rate(LOOP_RATE);
+				std::chrono::time_point<std::chrono::system_clock> sad_start;
+				sad_start = std::chrono::system_clock::now();                       // sad_Start new timer at current time
+				ROS_INFO("Going backwards because sad");
+				while (ros::ok() && sad_seconds_elapsed <= backward_time) {         // Kobuki diameter is 0.3515m, we want to travel half (3.5s x 0.05m/s) 
+					VelPub.publish(Vel);                                        // Publish cmd_vel to teleop mux input
+					loop_rate.sleep();
+					sad_seconds_elapsed = std::chrono::duration_cast<std::chrono::seconds>(std::chrono::system_clock::now()-sad_start).count(); // Count how much time has passed
+					//ROS_INFO("sad_seconds_elapsed:%i,backward_T:%f",sad_seconds_elapsed,BACKWARD_T);
+				}
+				//////sad_start being sad
+				// sc.playWave(path_to_sounds + "sound.wav"); //starts playing crying noises
+				
+				rotate(VelPub, -23); //rotate back an fourth while crying 
+				//delay()
+				rotate(VelPub,45);
+				//delay()
+				rotate(VelPub,-45);
+				//delay()
+				rotate(VelPub, 23);
+				//delay
+				// sc.stopPlayingWave(); //stops the sound CAUSES CATKIN_MAKE ERROR
+				WorldState = 0;
+
+
+
 				ROS_INFO("Broke sad mode");
 				last_state = 2;
 				cv::destroyAllWindows();
@@ -492,7 +621,46 @@ int main(int argc, char **argv)
 				cv::imshow("view", excited_image);
 				cv::waitKey(1);
 				ROS_INFO("Found my person, getting excited");
-				excitedMode(VelPub);
+				// excitedMode(VelPub);
+
+
+				// Move TurtleBot in circles for 10 seconds
+				Vel.angular.z = 1.2;
+				Vel.linear.x = 0.3;                                      	// Set linear to Twist
+				uint64_t excited_seconds_elapsed = 0;                                   // New variable for time that has passed    
+				float move_time = 10;   //0.5 m backwards
+				// ros::Rate loop_rate(LOOP_RATE);
+				std::chrono::time_point<std::chrono::system_clock> excited_start;
+				excited_start = std::chrono::system_clock::now();                       // excited_Start new timer at current time
+				while (ros::ok() && excited_seconds_elapsed <= move_time) {         // Kobuki diameter is 0.3515m, we want to travel half (3.5s x 0.05m/s) 
+					VelPub.publish(Vel);                                        // Publish cmd_vel to teleop mux input
+					loop_rate.sleep();
+					excited_seconds_elapsed = std::chrono::duration_cast<std::chrono::seconds>(std::chrono::system_clock::now()-excited_start).count(); // Count how much time has passed
+					//ROS_INFO("excited_seconds_elapsed:%i,backward_T:%f",excited_seconds_elapsed,BACKWARD_T);
+				}
+				
+				// Play happy/exciting song for 3 seconds
+				// sc.playWave(path_to_sounds + "sound.wav"); //add happy/exciting sound and modify the name
+				// sound_play::SoundClient sc;
+
+				// // Blink the LEDs in different colors
+				// led_manager::LedAnim led_anim;
+				// led_anim.request.name = "blink";
+				// led_anim.request.color.r = 255;
+				// led_anim.request.color.g = 0;
+				// led_anim.request.color.b = 0;
+				// led_anim.request.frequency = 5;
+				// led_anim.request.duration = 5.0;
+				// led_client.call(led_anim);
+				WorldState = 0;
+
+
+
+
+
+
+
+
 				ROS_INFO("Breaking excited mode");
 				last_state = 3;
 				cv::destroyAllWindows();
@@ -505,7 +673,90 @@ int main(int argc, char **argv)
 				cv::imshow("view", rage_image);
 				cv::waitKey(1);
 				ROS_INFO("Got intimidated, getting angry");
-				rageMode(VelPub);
+				// rageMode(VelPub);
+
+
+
+
+
+
+				// Shake a little
+				// Publish forward in a loop until bumper is pressed
+				// Make noises
+				// Turn screen red 
+
+				// sc.playWave(path_to_sounds + "sound.wav"); //Get out of me swamp
+				ros::Duration(0.5).sleep();
+
+				// ros::Rate loop_rate(LOOP_RATE);
+				std::chrono::time_point<std::chrono::system_clock> rage_start;       // Initialize timer
+
+				Vel.angular.z = 0.0;
+				Vel.linear.x = RAGE_VEL;
+				uint64_t rage_seconds_elapsed = 0;                                    // Variable for time that has passed
+
+				ROS_INFO("Rushing person");
+				while (ros::ok()  && !AnyBumperPressed) {						// Move forward until it hits feet
+					VelPub.publish(Vel);
+					ros::spinOnce();                                            // Listen to all subscriptions once
+					loop_rate.sleep();
+				}
+				// "get out of my way"
+				// sc.playWave(path_to_sounds + "sound.wav"); //Move/get out, consider putting in bumper callback
+
+				ROS_INFO("Foot hit, reversing");
+
+				Vel.linear.x = BACKWARD_V;                                      // Set linear to Twist
+				Vel.angular.z = 0;
+				rage_seconds_elapsed = 0;                                   // New variable for time that has passed    
+				int angle = 0;
+
+				rage_start = std::chrono::system_clock::now();                       // rage_Start new timer at current time
+				// Move back a little
+				while (ros::ok() && rage_seconds_elapsed <= BACKWARD_T) {            // Kobuki diameter is 0.3515m, we want to travel half (3.5s x 0.05m/s) 
+					VelPub.publish(Vel);                                        // Publish cmd_vel to teleop mux input
+					loop_rate.sleep();
+					rage_seconds_elapsed = std::chrono::duration_cast<std::chrono::seconds>(std::chrono::system_clock::now()-rage_start).count(); // Count how much time has passed
+					//ROS_INFO("rage_seconds_elapsed:%i,backward_T:%f",rage_seconds_elapsed,BACKWARD_T);
+				}
+				// Turn right
+				rotate(VelPub, -90); 
+
+				Vel.angular.z = 0.0;
+				Vel.linear.x = RAGE_VEL;
+				rage_seconds_elapsed = 0;                                    // Variable for time that has passed
+				float time_forward = abs(FORWARD_DIST/RAGE_VEL);
+
+				rage_start = std::chrono::system_clock::now();                       // rage_Start the timer
+				ros::spinOnce();
+				ROS_INFO("Move away from victim");
+				while (ros::ok() && rage_seconds_elapsed <= time_forward && !AnyBumperPressed) { //Move forward a few steps
+					VelPub.publish(Vel);
+					ros::spinOnce();                                            // Listen to all subscriptions once
+					loop_rate.sleep();
+					rage_seconds_elapsed = std::chrono::duration_cast<std::chrono::seconds>(std::chrono::system_clock::now()-rage_start).count(); //count how much time has passed
+				}
+
+				// sc.playWave(path_to_sounds + "sound.wav"); //Rooooooaaaarrrr
+				Vel.angular.z = RAGE_TURN;
+				Vel.linear.x = 0.0;
+				rage_seconds_elapsed = 0;                                    			// Variable for time that has passed
+				float time_turning = 3.0;
+
+				rage_start = std::chrono::system_clock::now();                       // rage_Start the timer
+				ros::spinOnce();
+				ROS_INFO("Angry spin");
+				while (ros::ok() && rage_seconds_elapsed <= time_turning) { // Spin for 3 seconds
+					VelPub.publish(Vel);
+					ros::spinOnce();                                            // Listen to all subscriptions once
+					loop_rate.sleep();
+					rage_seconds_elapsed = std::chrono::duration_cast<std::chrono::seconds>(std::chrono::system_clock::now()-rage_start).count(); //count how much time has passed
+				}
+
+
+
+
+
 				ROS_INFO("Breaking rage mode");
 				is_reversing = false;
 				last_state = 4;
