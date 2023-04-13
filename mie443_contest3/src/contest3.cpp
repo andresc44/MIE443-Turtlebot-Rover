@@ -610,7 +610,7 @@ int main(int argc, char **argv)
 				
 				ros::Time start_time0 = ros::Time::now();
 				sc.playWave(path_to_sounds + "Sad.wav"); // starts playing crying noises
-				while ((ros::Time::now()-start_time0).toSec() < 11.0){
+				while ((ros::Time::now()-start_time0).toSec() < 7.0){
 					// cv::imshow("view",sad_image);
 					cv::waitKey(1);
 					rotate(VelPub, -15); //rotate back an fourth while crying 
@@ -622,8 +622,21 @@ int main(int argc, char **argv)
 					rotate(VelPub,30);
 					//delay()
 					rotate(VelPub,-30);
+					rotate(VelPub,30);
 					//delay()
-					rotate(VelPub, 15);
+					rotate(VelPub,-30);
+					rotate(VelPub,30);
+					//delay()
+
+					rotate(VelPub,-30);
+					rotate(VelPub,30);
+					sc.playWave(path_to_sounds + "Sad_2.wav"); // starts playing crying noises
+					rotate(VelPub,-30);
+					//delay()
+
+					rotate(VelPub,30);
+					//delay()
+					rotate(VelPub, -15);
 					//delay
 				}
 				WorldState = 0;
@@ -632,6 +645,8 @@ int main(int argc, char **argv)
 				ROS_INFO("Broke sad mode");
 				last_state = 2;
 				cv::destroyAllWindows();
+				time_in_reverse = 0;
+				is_reversing = false;
 				break;}
 			case 3:{
 				sc.playWave(path_to_sounds + "Excited.wav");
